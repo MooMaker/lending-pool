@@ -15,24 +15,28 @@ describe('AddressesProvider', function () {
             nonce: await owner.getNonce() + 1
         })
         await addressesProvider.setLendingPoolImpl(lendingPoolAddress);
-        //
-        // const lendingPoolCoreAddress = ethers.getCreateAddress({
-        //    from: owner.address,
-        //    nonce: await owner.getNonce() + 1
-        // });
 
         const LendingPool = await ethers.getContractFactory('LendingPool');
-        const lendingPool = await LendingPool.deploy(lendingPoolAddress);
+        const lendingPool = await LendingPool.deploy(addressesProvider)
 
-        // const LendingPoolCore = await ethers.getContractFactory('LendingPoolCore');
-        // const lendingPoolCore = await LendingPoolCore.deploy(lendingPoolCoreAddress);
+        const lendingPoolCoreAddress = ethers.getCreateAddress({
+            from: owner.address,
+            nonce: await owner.getNonce() + 1
+        });
+        await addressesProvider.setLendingPoolCoreImpl(lendingPoolCoreAddress);
 
-        return { addressesProvider, lendingPool, owner, otherAccount };
+        const LendingPoolCore = await ethers.getContractFactory('LendingPoolCore');
+        const lendingPoolCore = await LendingPoolCore.deploy(addressesProvider);
+
+        return { addressesProvider, lendingPoolCore,  lendingPool, owner, otherAccount };
     }
 
     it('ensures lending pool address', async () => {
-        const { addressesProvider, lendingPool } = await loadFixture(deployContractFixtures);
+        const { addressesProvider, lendingPool, lendingPoolCore } = await loadFixture(deployContractFixtures);
         expect(await addressesProvider.getLendingPool())
             .to.equal(await lendingPool.getAddress());
+
+        expect(await addressesProvider.getLendingPoolCore())
+            .to.equal(await lendingPoolCore.getAddress());
     })
 });
