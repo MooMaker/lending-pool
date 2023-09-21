@@ -50,18 +50,22 @@ contract LendingPool is ReentrancyGuard {
         // onlyUnfreezedReserve(_reserve)
         onlyAmountGreaterThanZero(_amount)
     {
+        // Locate the aToken to issue to user on deposit
         AToken aToken = AToken(core.getReserveATokenAddress(_reserve));
 
-        bool isFirstDeposit = aToken.balanceOf(msg.sender) == 0;
+        // TODO: do we need it?
+//        bool isFirstDeposit = aToken.balanceOf(msg.sender) == 0;
 
         // Having in mind discrete nature of the blockchain processing, we need to update the state of the pool
-        // as a result of one of the pool actions (deposit) in order to calculate the correct accrued interest values.
-        core.updateStateOnDeposit(_reserve, msg.sender, _amount, isFirstDeposit);
-//
-//        //minting AToken to user 1:1 with the specific exchange rate
-//        aToken.mintOnDeposit(msg.sender, _amount);
-//
-//        //transfer to the core contract
+        // as a result of one of the pool actions (deposit in this case) in order to calculate the correct accrued interest values
+        // of the pool. They are going to be used on later stage to determine accrued interest for the user.
+        core.updateStateOnDeposit(_reserve, msg.sender, _amount /*, isFirstDeposit */);
+
+        // Minting AToken to user 1:1 with the specific exchange rate
+        // Aside from that it also minting the interest to the user
+        aToken.mintOnDeposit(msg.sender, _amount);
+
+//        transfer to the core contract
 //        core.transferToReserve.value(msg.value)(_reserve, msg.sender, _amount);
 //
 //        //solium-disable-next-line

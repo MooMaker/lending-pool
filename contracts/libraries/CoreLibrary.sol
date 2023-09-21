@@ -35,6 +35,27 @@ library CoreLibrary {
     }
 
     /**
+    * @dev returns the ongoing normalized income for the reserve.
+    * a value of 1e27 means there is no income. As time passes, the income is accrued.
+    * A value of 2*1e27 means that the income of the reserve is double the initial amount.
+    * @param _reserve the reserve object
+    * @return the normalized income. expressed in ray
+    **/
+    function getNormalizedIncome(CoreLibrary.ReserveData storage _reserve)
+        internal
+        view
+        returns (uint256)
+    {
+        uint256 cumulated = calculateLinearInterest(
+            _reserve.currentLiquidityRate,
+            _reserve.lastUpdateTimestamp
+        ).rayMul(_reserve.lastLiquidityCumulativeIndex);
+
+        return cumulated;
+
+    }
+
+    /**
     * @dev Updates the liquidity cumulative index Ci and variable borrow cumulative index Bvc. Refer to the whitepaper for
     * a formal specification.
     * @param _self the reserve object
@@ -49,6 +70,7 @@ library CoreLibrary {
                 _self.lastUpdateTimestamp
             );
 
+            // TODO: needs to be set to 1 ray by default?
             _self.lastLiquidityCumulativeIndex = cumulatedLiquidityInterest.rayMul(
                 _self.lastLiquidityCumulativeIndex
             );

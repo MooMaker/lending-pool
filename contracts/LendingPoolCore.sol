@@ -57,8 +57,8 @@ contract LendingPoolCore {
     function updateStateOnDeposit(
         address _reserve,
         address _user,
-        uint256 _amount,
-        bool _isFirstDeposit
+        uint256 _amount
+        /* bool _isFirstDeposit */
     ) external onlyLendingPool {
         // As the time passes by, pool accrues some interest, and we want to know
         // total accrued interest since the last update:
@@ -72,6 +72,17 @@ contract LendingPoolCore {
 //            //if this is the first deposit of the user, we configure the deposit as enabled to be used as collateral
 //            setUserUseReserveAsCollateral(_reserve, _user, true);
 //        }
+    }
+
+    /**
+    * @dev gets the normalized income of the reserve. a value of 1e27 means there is no income. A value of 2e27 means there
+    * there has been 100% income.
+    * @param _reserve the reserve address
+    * @return the reserve normalized income
+    **/
+    function getReserveNormalizedIncome(address _reserve) external view returns (uint256) {
+        CoreLibrary.ReserveData storage reserve = reserves[_reserve];
+        return reserve.getNormalizedIncome();
     }
 
     /**
