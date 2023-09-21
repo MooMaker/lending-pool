@@ -50,14 +50,14 @@ contract LendingPoolCore {
     /**
     * @dev updates the state of the core as a result of a deposit action
     * @param _reserve the address of the reserve in which the deposit is happening
-    * @param _user the address of the the user depositing
+    * !param _user the address of the the user depositing
     * @param _amount the amount being deposited
-    //param _isFirstDeposit true if the user is depositing for the first time
+    * !param _isFirstDeposit true if the user is depositing for the first time
     **/
 
     function updateStateOnDeposit(
         address _reserve,
-        address _user,
+        /* address _user, */
         uint256 _amount
         /* bool _isFirstDeposit */
     ) external onlyLendingPool {

@@ -12,6 +12,20 @@ contract LendingPool is ReentrancyGuard {
     LendingPoolCore public core;
 
     /**
+    * @dev emitted on deposit
+    * @param _reserve the address of the reserve
+    * @param _user the address of the user
+    * @param _amount the amount to be deposited
+    * @param _timestamp the timestamp of the action
+    **/
+    event Deposit(
+        address indexed _reserve,
+        address indexed _user,
+        uint256 _amount,
+        uint256 _timestamp
+    );
+
+    /**
     * @dev functions affected by this modifier can only be invoked if the reserve is active
     * @param _reserve the address of the reserve
     **/
@@ -59,7 +73,7 @@ contract LendingPool is ReentrancyGuard {
         // Having in mind discrete nature of the blockchain processing, we need to update the state of the pool
         // as a result of one of the pool actions (deposit in this case) in order to calculate the correct accrued interest values
         // of the pool. They are going to be used on later stage to determine accrued interest for the user.
-        core.updateStateOnDeposit(_reserve, msg.sender, _amount /*, isFirstDeposit */);
+        core.updateStateOnDeposit(_reserve, /* msg.sender ,*/ _amount /*, isFirstDeposit */);
 
         // Minting AToken to user 1:1 with the specific exchange rate
         // Aside from that it also minting the interest to the user
@@ -67,10 +81,9 @@ contract LendingPool is ReentrancyGuard {
 
         // transfer to the core contract
         core.transferToReserve{ value: msg.value }(_reserve, payable(msg.sender), _amount);
-//
-//        //solium-disable-next-line
-//        emit Deposit(_reserve, msg.sender, _amount, _referralCode, block.timestamp);
 
+        //solium-disable-next-line
+        emit Deposit(_reserve, msg.sender, _amount, block.timestamp);
     }
 
     /**
