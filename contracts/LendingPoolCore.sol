@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./configuration/AddressesProvider.sol";
 import "./libraries/CoreLibrary.sol";
 import "./libraries/EthAddressLib.sol";
@@ -126,6 +127,34 @@ contract LendingPoolCore {
             reserve.lastLiquidityCumulativeIndex,
             reserve.lastVariableBorrowCumulativeIndex
         );
+    }
+
+    /**
+    * @dev transfers an amount from a user to the destination reserve
+    * @param _reserve the address of the reserve where the amount is being transferred
+    * @param _user the address of the user from where the transfer is happening
+    * @param _amount the amount being transferred
+    **/
+    function transferToReserve(address _reserve, address payable _user, uint256 _amount)
+        external
+        payable
+        onlyLendingPool
+    {
+        if (_reserve != EthAddressLib.ethAddress()) {
+            require(msg.value == 0, "User is sending ETH along with the ERC20 transfer.");
+            IERC20 reserveToken = IERC20(_reserve);
+            SafeERC20.safeTransferFrom(reserveToken, _user, payable(address(this)), _amount);
+        } else {
+            require(msg.value >= _amount, "The amount and the value sent to deposit do not match");
+
+            if (msg.value > _amount) {
+                //send back excess ETH
+                uint256 excessAmount = msg.value.sub(_amount);
+                //solium-disable-next-line
+                (bool result, ) = _user.call{ value: excessAmount, gas: 50000 }("");
+                require(result, "Transfer of ETH failed");
+            }
+        }
     }
 
     /**

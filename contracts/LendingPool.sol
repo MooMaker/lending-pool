@@ -65,8 +65,8 @@ contract LendingPool is ReentrancyGuard {
         // Aside from that it also minting the interest to the user
         aToken.mintOnDeposit(msg.sender, _amount);
 
-//        transfer to the core contract
-//        core.transferToReserve.value(msg.value)(_reserve, msg.sender, _amount);
+        // transfer to the core contract
+        core.transferToReserve{ value: msg.value }(_reserve, payable(msg.sender), _amount);
 //
 //        //solium-disable-next-line
 //        emit Deposit(_reserve, msg.sender, _amount, _referralCode, block.timestamp);
