@@ -45,6 +45,7 @@ contract LendingPool is ReentrancyGuard, Initializable {
         _;
     }
 
+    // TODO: guard somehow? onlyowner?
     /**
     * @dev this function is invoked by the proxy contract when the LendingPool contract is added to the
     * AddressesProvider.

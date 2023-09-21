@@ -43,6 +43,7 @@ contract LendingPoolCore is Initializable {
         _;
     }
 
+    // TODO: guard somehow? onlyowner?
     /**
     * @dev initializes the Core contract, invoked upon registration on the AddressesProvider
     * @param _addressesProvider the addressesProvider contract
