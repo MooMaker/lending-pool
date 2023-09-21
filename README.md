@@ -1,13 +1,13 @@
-# Sample Hardhat Project
+# Liquorice lending pool
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a script that deploys that contract.
+## Prerequisites
+- Node v16+
 
-Try running some of the following tasks:
+## Setup
+- `$ npm install`
 
-```shell
-npx hardhat help
-npx hardhat test
-REPORT_GAS=true npx hardhat test
-npx hardhat node
-npx hardhat run scripts/deploy.ts
-```
+## Deployment
+- `$ npx hardhat deploy --network <network>`
+
+## Tests
+- `$ npx hardhat test`
