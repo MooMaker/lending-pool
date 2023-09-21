@@ -3,12 +3,13 @@ pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "./configuration/AddressesProvider.sol";
 import "./libraries/CoreLibrary.sol";
 import "./libraries/EthAddressLib.sol";
 import "./interfaces/IReserveInterestRateStrategy.sol";
 
-contract LendingPoolCore {
+contract LendingPoolCore is Initializable {
     using SafeMath for uint256;
 
     using CoreLibrary for CoreLibrary.ReserveData;
@@ -42,7 +43,11 @@ contract LendingPoolCore {
         _;
     }
 
-    constructor(AddressesProvider _addressesProvider) {
+    /**
+    * @dev initializes the Core contract, invoked upon registration on the AddressesProvider
+    * @param _addressesProvider the addressesProvider contract
+    **/
+    function initialize(AddressesProvider _addressesProvider) public initializer {
         addressesProvider = _addressesProvider;
         refreshConfigInternal();
     }

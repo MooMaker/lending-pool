@@ -2,12 +2,13 @@
 pragma solidity ^0.8.18;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 import "./configuration/AddressesProvider.sol";
 import "./token/AToken.sol";
 import "./LendingPoolCore.sol";
 
-contract LendingPool is ReentrancyGuard {
+contract LendingPool is ReentrancyGuard, Initializable {
     AddressesProvider public addressesProvider;
     LendingPoolCore public core;
 
@@ -44,7 +45,12 @@ contract LendingPool is ReentrancyGuard {
         _;
     }
 
-    constructor(AddressesProvider _addressesProvider) {
+    /**
+    * @dev this function is invoked by the proxy contract when the LendingPool contract is added to the
+    * AddressesProvider.
+    * @param _addressesProvider the address of the LendingPoolAddressesProvider registry
+    **/
+    function initialize(AddressesProvider _addressesProvider) public initializer {
         addressesProvider = _addressesProvider;
         core = LendingPoolCore(addressesProvider.getLendingPoolCore());
     }
