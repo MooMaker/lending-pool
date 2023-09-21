@@ -51,7 +51,7 @@ contract LendingPoolCore {
     * @param _reserve the address of the reserve in which the deposit is happening
     * @param _user the address of the the user depositing
     * @param _amount the amount being deposited
-    * @param _isFirstDeposit true if the user is depositing for the first time
+    //param _isFirstDeposit true if the user is depositing for the first time
     **/
 
     function updateStateOnDeposit(
