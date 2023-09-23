@@ -21,6 +21,8 @@ contract AToken is ERC20Wrapper {
 
     mapping (address => uint256) private userIndexes;
 
+    uint8 private _decimals;
+
     LendingPoolCore private core;
     LendingPool private pool;
 
@@ -49,39 +51,19 @@ contract AToken is ERC20Wrapper {
     constructor(
         AddressesProvider _addressesProvider,
         IERC20 _underlyingAsset,
+        uint8 _underlyingAssetDecimals,
         string memory _name,
         string memory _symbol
     ) ERC20(_name, _symbol) ERC20Wrapper(_underlyingAsset) {
         addressesProvider = _addressesProvider;
         underlyingAssetAddress = address(_underlyingAsset);
+        _decimals = _underlyingAssetDecimals;
         core = LendingPoolCore(addressesProvider.getLendingPoolCore());
         pool = LendingPool(addressesProvider.getLendingPool());
     }
 
-    /**
-     * @dev mints token in the event of users depositing the underlying asset into the lending pool
-     * only lending pools can call this function
-     * @param _account the address receiving the minted tokens
-     * @param _amount the amount of tokens to mint
-     */
-    function mintOnDeposit(address _account, uint256 _amount) external onlyLendingPool {
-        // Cumulate balance checks accrued interest since the last action
-        // and mints a corresponding amount to the user.
-        // Besides balance increase, function returns Ci index
-        // TODO(perf): is it optimal to mint twice? Can't we return amount here
-        //   and mint once below together with the _amount?
-        (,, uint256 balanceIncrease, uint256 index) = cumulateBalanceInternal(_account);
-
-        // TODO(redirects): do we need it?
-        //if the user is redirecting his interest towards someone else,
-        //we update the redirected balance of the redirection address by adding the accrued interest
-        //and the amount deposited
-//        updateRedirectedBalanceOfRedirectionAddressInternal(_account, balanceIncrease.add(_amount), 0);
-
-        //mint an equivalent amount of tokens to cover the new deposit
-        _mint(_account, _amount);
-
-        emit MintOnDeposit(_account, _amount, balanceIncrease, index);
+    function decimals() override public view returns(uint8) {
+        return _decimals;
     }
 
     /**
@@ -128,6 +110,32 @@ contract AToken is ERC20Wrapper {
 //                .sub(redirectedBalance)
 //            );
 //        }
+    }
+
+    /**
+     * @dev mints token in the event of users depositing the underlying asset into the lending pool
+     * only lending pools can call this function
+     * @param _account the address receiving the minted tokens
+     * @param _amount the amount of tokens to mint
+     */
+    function mintOnDeposit(address _account, uint256 _amount) external onlyLendingPool {
+        // Cumulate balance checks accrued interest since the last action
+        // and mints a corresponding amount to the user.
+        // Besides balance increase, function returns Ci index
+        // TODO(perf): is it optimal to mint twice? Can't we return amount here
+        //   and mint once below together with the _amount?
+        (,, uint256 balanceIncrease, uint256 index) = cumulateBalanceInternal(_account);
+
+        // TODO(redirects): do we need it?
+        //if the user is redirecting his interest towards someone else,
+        //we update the redirected balance of the redirection address by adding the accrued interest
+        //and the amount deposited
+//        updateRedirectedBalanceOfRedirectionAddressInternal(_account, balanceIncrease.add(_amount), 0);
+
+        //mint an equivalent amount of tokens to cover the new deposit
+        _mint(_account, _amount);
+
+        emit MintOnDeposit(_account, _amount, balanceIncrease, index);
     }
 
     /**

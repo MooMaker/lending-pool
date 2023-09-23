@@ -6,6 +6,7 @@ type ATokenInfo = {
     symbol: string;
     name: string;
     underlyingAssetAddress: string;
+    decimals: number;
 }
 
 const setupFunction: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
@@ -17,15 +18,18 @@ const setupFunction: DeployFunction = async function (hre: HardhatRuntimeEnviron
     const TOKENS: ATokenInfo[] = [{
         symbol: 'aETH',
         name: 'Liquorice interest bearing ETH',
-        underlyingAssetAddress: tokenList.ETH,
+        underlyingAssetAddress: tokenList.ETH.address,
+        decimals: tokenList.ETH.decimals
     }, {
         symbol: 'aUSDC',
         name: 'Liquorice interest bearing USDC',
-        underlyingAssetAddress: tokenList.USDC
+        underlyingAssetAddress: tokenList.USDC.address,
+        decimals: tokenList.USDC.decimals,
     }, {
         symbol: 'aDAI',
         name: 'Liquorice interest bearing DAI',
-        underlyingAssetAddress: tokenList.DAI
+        underlyingAssetAddress: tokenList.DAI.address,
+        decimals: tokenList.DAI.decimals,
     }];
 
     const addressesProvider = await deployments.get('AddressesProvider');
@@ -38,6 +42,7 @@ const setupFunction: DeployFunction = async function (hre: HardhatRuntimeEnviron
             args: [
                 addressesProvider.address,
                 token.underlyingAssetAddress,
+                token.decimals,
                 token.name,
                 token.symbol
             ],
