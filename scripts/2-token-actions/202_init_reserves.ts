@@ -44,22 +44,6 @@ const setupFunction: DeployFunction = async function (hre: HardhatRuntimeEnviron
             ...[tokenAddress, aToken.address, decimals, strategy.address]
         )
     }
-
-    // for (const strategyInfo of strategyInfoList) {
-    //     const { tokenSymbol, tokenAddress, strategy } = strategyInfo;
-    //     await deployments.deploy(`${tokenSymbol}InterestRateStrategy`, {
-    //         contract: 'contracts/DefaultReserveInterestRateStrategy.sol:DefaultReserveInterestRateStrategy',
-    //         from: deployer,
-    //         log: true,
-    //         args: [
-    //             tokenAddress,
-    //             addressesProvider.address,
-    //             strategy.baseVariableBorrowRate,
-    //             strategy.variableRateSlope1,
-    //             strategy.variableRateSlope2,
-    //         ]
-    //     });
-    // }
 };
 
 setupFunction.tags = ['reserves', 'interest-rate-strategy', 'token-actions'];

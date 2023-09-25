@@ -1,6 +1,7 @@
 import { DeployFunction } from 'hardhat-deploy/types';
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import {getTokenListForNetwork} from "../../lib/utils/token";
+import {writeToJSON} from "../../lib/test/utils";
 
 type InterestRateStrategy = {
     optimalUsage: number;
@@ -45,7 +46,8 @@ const setupFunction: DeployFunction = async function (hre: HardhatRuntimeEnviron
 
     for (const strategyInfo of strategyInfoList) {
         const { tokenSymbol, tokenAddress, strategy } = strategyInfo;
-        await deployments.deploy(`${tokenSymbol}InterestRateStrategy`, {
+        const name = `${tokenSymbol}InterestRateStrategy`;
+        const deployment = await deployments.deploy(name, {
             contract: 'contracts/DefaultReserveInterestRateStrategy.sol:DefaultReserveInterestRateStrategy',
             from: deployer,
             log: true,
@@ -56,6 +58,10 @@ const setupFunction: DeployFunction = async function (hre: HardhatRuntimeEnviron
                 strategy.variableRateSlope1,
                 strategy.variableRateSlope2,
             ]
+        });
+
+        await writeToJSON('./deploy.config.json', {
+            [name]: deployment.address,
         });
     }
 };

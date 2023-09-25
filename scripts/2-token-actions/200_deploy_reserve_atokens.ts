@@ -1,6 +1,7 @@
 import { DeployFunction } from 'hardhat-deploy/types';
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import {getTokenListForNetwork} from "../../lib/utils/token";
+import {writeToJSON} from "../../lib/test/utils";
 
 type ATokenInfo = {
     symbol: string;
@@ -15,18 +16,20 @@ const setupFunction: DeployFunction = async function (hre: HardhatRuntimeEnviron
 
     const tokenList = getTokenListForNetwork(hre.network);
 
+    const tokenPrefix = 'a';
+
     const TOKENS: ATokenInfo[] = [{
-        symbol: 'aETH',
+        symbol: 'ETH',
         name: 'Liquorice interest bearing ETH',
         underlyingAssetAddress: tokenList.ETH.address,
         decimals: tokenList.ETH.decimals
     }, {
-        symbol: 'aUSDC',
+        symbol: 'USDC',
         name: 'Liquorice interest bearing USDC',
         underlyingAssetAddress: tokenList.USDC.address,
         decimals: tokenList.USDC.decimals,
     }, {
-        symbol: 'aDAI',
+        symbol: 'DAI',
         name: 'Liquorice interest bearing DAI',
         underlyingAssetAddress: tokenList.DAI.address,
         decimals: tokenList.DAI.decimals,
@@ -35,7 +38,8 @@ const setupFunction: DeployFunction = async function (hre: HardhatRuntimeEnviron
     const addressesProvider = await deployments.get('AddressesProvider');
 
     for (const token of TOKENS) {
-        await deployments.deploy(`${token.symbol}`, {
+        const name = `${tokenPrefix}${token.symbol}`;
+        const deployment = await deployments.deploy(name, {
             contract: 'contracts/token/AToken.sol:AToken',
             from: deployer,
             log: true,
@@ -46,6 +50,11 @@ const setupFunction: DeployFunction = async function (hre: HardhatRuntimeEnviron
                 token.name,
                 token.symbol
             ],
+        });
+
+        await writeToJSON('./deploy.config.json', {
+            [name]: deployment.address,
+            [token.symbol]: token.underlyingAssetAddress
         });
     }
 };
