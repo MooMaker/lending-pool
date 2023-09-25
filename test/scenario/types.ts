@@ -17,7 +17,7 @@ export type Action = {
 
 export type Story = {
     description: string;
-    action: Action[]
+    actions: Action[]
 }
 
 export type Scenario = {

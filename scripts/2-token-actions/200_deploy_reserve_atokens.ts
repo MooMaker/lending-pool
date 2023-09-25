@@ -2,6 +2,7 @@ import { DeployFunction } from 'hardhat-deploy/types';
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import {getTokenListForNetwork} from "../../lib/utils/token";
 import {writeToJSON} from "../../lib/test/utils";
+import {TOKEN_DECIMALS} from "../../lib/constants/tokens";
 
 type ATokenInfo = {
     symbol: string;
@@ -21,18 +22,18 @@ const setupFunction: DeployFunction = async function (hre: HardhatRuntimeEnviron
     const TOKENS: ATokenInfo[] = [{
         symbol: 'ETH',
         name: 'Liquorice interest bearing ETH',
-        underlyingAssetAddress: tokenList.ETH.address,
-        decimals: tokenList.ETH.decimals
+        underlyingAssetAddress: tokenList.ETH,
+        decimals: TOKEN_DECIMALS.ETH,
     }, {
         symbol: 'USDC',
         name: 'Liquorice interest bearing USDC',
-        underlyingAssetAddress: tokenList.USDC.address,
-        decimals: tokenList.USDC.decimals,
+        underlyingAssetAddress: tokenList.USDC,
+        decimals: TOKEN_DECIMALS.USDC,
     }, {
         symbol: 'DAI',
         name: 'Liquorice interest bearing DAI',
-        underlyingAssetAddress: tokenList.DAI.address,
-        decimals: tokenList.DAI.decimals,
+        underlyingAssetAddress: tokenList.DAI,
+        decimals: TOKEN_DECIMALS.DAI,
     }];
 
     const addressesProvider = await deployments.get('AddressesProvider');

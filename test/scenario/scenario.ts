@@ -1,22 +1,31 @@
-import {Scenario, Story} from "./types";
+import hre from "hardhat";
+import {Scenario} from "./types";
 
-const DEPOSIT_SCENARIO = require('./fixtures/deposit.json');
+import DEPOSIT_SCENARIO from './scenarios/deposit.json';
+import {executeStory} from "../../lib/test/scenarios/scenario-engine";
 
 const scenario = [
     DEPOSIT_SCENARIO as Scenario
 ];
 
+describe('Scenario tests', () => {
+    let users: string[] = [];
 
-const executeStory = async (story: Story) => {
-    console.dir(story.description, { depth: null });
-}
+    before(async () => {
+        users = await hre.getUnnamedAccounts();
+    });
 
-scenario.forEach((scenario) => {
-   describe(scenario.title, () => {
-        scenario.stories.forEach((story) => {
-           it(story.description, async () => {
-               await executeStory(story);
-           });
-       });
-   });
+    scenario.forEach((scenario) => {
+        describe.only(scenario.title, () => {
+            scenario.stories.forEach((story) => {
+                it(story.description, async () => {
+                    await executeStory(story, users);
+                });
+            });
+        });
+    });
 });
+
+
+
+

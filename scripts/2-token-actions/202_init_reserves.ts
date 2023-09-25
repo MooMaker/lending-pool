@@ -10,19 +10,19 @@ const setupFunction: DeployFunction = async function (hre: HardhatRuntimeEnviron
     const reservesList = [
         {
             tokenSymbol: 'ETH',
-            tokenAddress: tokenList.ETH.address,
+            tokenAddress: tokenList.ETH,
             strategy: await deployments.get('ETHInterestRateStrategy'),
             aToken: await deployments.get('aETH'),
         },
         {
             tokenSymbol: 'USDC',
-            tokenAddress: tokenList.USDC.address,
+            tokenAddress: tokenList.USDC,
             strategy: await deployments.get('USDCInterestRateStrategy'),
             aToken: await deployments.get('aUSDC'),
         },
         {
             tokenSymbol: 'DAI',
-            tokenAddress: tokenList.DAI.address,
+            tokenAddress: tokenList.DAI,
             strategy: await deployments.get('DAIInterestRateStrategy'),
             aToken: await deployments.get('aDAI'),
         }

@@ -6,7 +6,7 @@
             "description" : "User 0 Deposits 1000 DAI in an empty reserve",
             "actions" : [
                 {
-                    "name" : "mint",
+                    "name" : "transfer",
                     "args" : {
                         "reserve" : "DAI",
                         "amount" : "1000",
@@ -32,13 +32,13 @@
                     "expected": "success"
                 }
             ]
-    
+
         },
         {
             "description" : "User 1 deposits 1000 DAI after user 1",
             "actions" : [
                 {
-                    "name" : "mint",
+                    "name" : "transfer",
                     "args" : {
                         "reserve" : "DAI",
                         "amount" : "1000",
@@ -64,13 +64,13 @@
                     "expected": "success"
                 }
             ]
-    
+
         },
         {
             "description" : "User 0 deposits 1000 USDC in an empty reserve",
             "actions" : [
                 {
-                    "name" : "mint",
+                    "name" : "transfer",
                     "args" : {
                         "reserve" : "USDC",
                         "amount" : "1000",
@@ -96,13 +96,13 @@
                     "expected": "success"
                 }
             ]
-    
+
         },
         {
             "description" : "User 1 deposits 1000 USDC after user 0",
             "actions" : [
                 {
-                    "name" : "mint",
+                    "name" : "transfer",
                     "args" : {
                         "reserve" : "USDC",
                         "amount" : "1000",
@@ -128,7 +128,7 @@
                     "expected": "success"
                 }
             ]
-    
+
         },
         {
             "description" : "User 0 deposits 1 ETH in an empty reserve",
@@ -144,7 +144,7 @@
                     "expected": "success"
                 }
             ]
-    
+
         },
         {
             "description" : "User 1 deposits 1 ETH after user 0",
@@ -160,7 +160,7 @@
                     "expected": "success"
                 }
             ]
-    
+
         },
         {
             "description" : "User 1 deposits 0 ETH (revert expected)",
@@ -176,7 +176,7 @@
                     "revertMessage" : "Amount must be greater than 0"
                 }
             ]
-    
+
         },
         {
             "description" : "User 1 deposits 0 DAI",
@@ -192,7 +192,7 @@
                     "revertMessage" : "Amount must be greater than 0"
                 }
             ]
-    
+
         },
         {
             "description" : "User 1 tries to deposit ETH without sending any value",
@@ -209,7 +209,7 @@
                     "revertMessage" : "The amount and the value sent to deposit do not match"
                 }
             ]
-    
+
         },
         {
             "description" : "User 1 tries to deposit ETH by sending less value than required",
@@ -226,7 +226,7 @@
                     "revertMessage" : "The amount and the value sent to deposit do not match"
                 }
             ]
-    
+
         }
     ]
 }
