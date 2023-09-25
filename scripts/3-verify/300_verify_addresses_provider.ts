@@ -1,6 +1,6 @@
 import { DeployFunction } from 'hardhat-deploy/types';
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
-import { verifyContract } from '../../uitls/deploy';
+import { verifyContract } from '../../lib/deploy/utils';
 
 const deployFunction: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     const contract = await hre.deployments.get('AddressesProvider');
