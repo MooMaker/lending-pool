@@ -1,5 +1,5 @@
 import {Action, Story} from "../../../test/scenario/types";
-import {transfer} from "./actions";
+import {approve, transfer} from "./actions";
 
 export const executeStory = async (story: Story, users: string[]) => {
     for (const action of story.actions) {
@@ -36,6 +36,10 @@ const executeAction = async (action: Action, users: string[]) => {
             }
 
             await transfer(reserve, amount, userAddress);
+            break;
+
+        case 'approve':
+            await approve(reserve, userAddress);
             break;
     }
 };
