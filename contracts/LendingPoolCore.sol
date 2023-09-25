@@ -17,7 +17,10 @@ contract LendingPoolCore is Initializable {
     AddressesProvider public addressesProvider;
 
     address public lendingPoolAddress;
+
+
     mapping(address => CoreLibrary.ReserveData) internal reserves;
+    address[] public reservesList;
 
     /**
     * @dev Emitted when the state of a reserve is updated
@@ -54,18 +57,35 @@ contract LendingPoolCore is Initializable {
     }
 
     /**
+    * @dev initializes a reserve
+    * @param _reserve the address of the reserve
+    * @param _aTokenAddress the address of the overlying aToken contract
+    * @param _decimals the decimals of the reserve currency
+    * @param _interestRateStrategyAddress the address of the interest rate strategy contract
+    **/
+    function initReserve(
+        address _reserve,
+        address _aTokenAddress,
+        uint256 _decimals,
+        address _interestRateStrategyAddress
+    // TODO: implement configurator
+    ) external /* onlyLendingPoolConfigurator */ {
+        reserves[_reserve].init(_aTokenAddress, _decimals, _interestRateStrategyAddress);
+        addReserveToListInternal(_reserve);
+    }
+
+    /**
     * @dev updates the state of the core as a result of a deposit action
     * @param _reserve the address of the reserve in which the deposit is happening
     * !param _user the address of the the user depositing
     * @param _amount the amount being deposited
     * !param _isFirstDeposit true if the user is depositing for the first time
     **/
-
     function updateStateOnDeposit(
         address _reserve,
-        /* address _user, */
+    /* address _user, */
         uint256 _amount
-        /* bool _isFirstDeposit */
+    /* bool _isFirstDeposit */
     ) external onlyLendingPool {
         // As the time passes by, pool accrues some interest, and we want to know
         // total accrued interest since the last update:
@@ -113,12 +133,12 @@ contract LendingPoolCore is Initializable {
 
         (uint256 newLiquidityRate, uint256 newVariableRate) = interestRateStrategy
             .calculateInterestRates(
-                _reserve,
-                getReserveAvailableLiquidity(_reserve)
-                    .add(_liquidityAdded)
-                    .sub(_liquidityTaken),
-                reserve.totalBorrowsVariable
-            );
+            _reserve,
+            getReserveAvailableLiquidity(_reserve)
+            .add(_liquidityAdded)
+            .sub(_liquidityTaken),
+            reserve.totalBorrowsVariable
+        );
 
         reserve.currentLiquidityRate = newLiquidityRate;
         reserve.currentVariableBorrowRate = newVariableRate;
@@ -142,9 +162,9 @@ contract LendingPoolCore is Initializable {
     * @param _amount the amount being transferred
     **/
     function transferToReserve(address _reserve, address payable _user, uint256 _amount)
-        external
-        payable
-        onlyLendingPool
+    external
+    payable
+    onlyLendingPool
     {
         if (_reserve != EthAddressLib.ethAddress()) {
             require(msg.value == 0, "User is sending ETH along with the ERC20 transfer.");
@@ -161,6 +181,38 @@ contract LendingPoolCore is Initializable {
                 require(result, "Transfer of ETH failed");
             }
         }
+    }
+
+    /**
+    * @dev activates a reserve
+    * @param _reserve the address of the reserve
+    **/
+    function activateReserve(address _reserve)
+    external
+    // TODO: onlyLendingPoolConfigurator
+    //onlyLendingPoolConfigurator
+    {
+        CoreLibrary.ReserveData storage reserve = reserves[_reserve];
+
+        require(
+            reserve.lastLiquidityCumulativeIndex > 0 &&
+            reserve.lastVariableBorrowCumulativeIndex > 0,
+            "Reserve has not been initialized yet"
+        );
+        reserve.isActive = true;
+    }
+
+    /**
+    * @dev deactivates a reserve
+    * @param _reserve the address of the reserve
+    **/
+    function deactivateReserve(address _reserve)
+    external
+    // TODO: implement
+    //onlyLendingPoolConfigurator
+    {
+        CoreLibrary.ReserveData storage reserve = reserves[_reserve];
+        reserve.isActive = false;
     }
 
     /**
@@ -204,5 +256,17 @@ contract LendingPoolCore is Initializable {
     function getReserveIsActive(address _reserve) external view returns (bool) {
         CoreLibrary.ReserveData storage reserve = reserves[_reserve];
         return reserve.isActive;
+    }
+
+    /**
+    * @dev adds a reserve to the array of the reserves address
+    **/
+    function addReserveToListInternal(address _reserve) internal {
+        bool reserveAlreadyAdded = false;
+        for (uint256 i = 0; i < reservesList.length; i++)
+            if (reservesList[i] == _reserve) {
+                reserveAlreadyAdded = true;
+            }
+        if (!reserveAlreadyAdded) reservesList.push(_reserve);
     }
 }

@@ -21,6 +21,8 @@ library CoreLibrary {
         uint256 currentVariableBorrowRate;
         // the total borrows of the reserve. Expressed in the currency decimals
         uint256 totalBorrowsVariable;
+        //the decimals of the reserve asset
+        uint256 decimals;
         /**
         * @dev address of the interest rate strategy contract
         **/
@@ -32,6 +34,39 @@ library CoreLibrary {
         uint40 lastUpdateTimestamp;
         // isActive = true means the reserve has been activated and properly configured
         bool isActive;
+    }
+
+    /**
+    * @dev initializes a reserve
+    * @param _self the reserve object
+    * @param _aTokenAddress the address of the overlying atoken contract
+    * @param _decimals the number of decimals of the underlying asset
+    * @param _interestRateStrategyAddress the address of the interest rate strategy contract
+    **/
+    function init(
+        ReserveData storage _self,
+        address _aTokenAddress,
+        uint256 _decimals,
+        address _interestRateStrategyAddress
+    ) internal {
+        require(_self.aTokenAddress == address(0), "Reserve has already been initialized");
+
+        if (_self.lastLiquidityCumulativeIndex == 0) {
+            //if the reserve has not been initialized yet
+            _self.lastLiquidityCumulativeIndex = WadRayMath.ray();
+        }
+
+        if (_self.lastVariableBorrowCumulativeIndex == 0) {
+            _self.lastVariableBorrowCumulativeIndex = WadRayMath.ray();
+        }
+
+        _self.aTokenAddress = _aTokenAddress;
+        _self.decimals = _decimals;
+
+        _self.interestRateStrategyAddress = _interestRateStrategyAddress;
+        _self.isActive = true;
+        // TODO(freezing): implement
+//        _self.isFreezed = false;
     }
 
     /**
