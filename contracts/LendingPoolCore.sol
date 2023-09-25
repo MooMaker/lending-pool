@@ -11,6 +11,7 @@ import "./interfaces/IReserveInterestRateStrategy.sol";
 
 contract LendingPoolCore is Initializable {
     using SafeMath for uint256;
+    using WadRayMath for uint256;
 
     using CoreLibrary for CoreLibrary.ReserveData;
 
@@ -216,6 +217,16 @@ contract LendingPoolCore is Initializable {
     }
 
     /**
+    * @dev gets the total liquidity in the reserve. The total liquidity is the balance of the core contract + total borrows
+    * @param _reserve the reserve address
+    * @return the total liquidity
+    **/
+    function getReserveTotalLiquidity(address _reserve) public view returns (uint256) {
+        CoreLibrary.ReserveData storage reserve = reserves[_reserve];
+        return getReserveAvailableLiquidity(_reserve).add(reserve.getTotalBorrows());
+    }
+
+    /**
     * @dev gets the available liquidity in the reserve. The available liquidity is the balance of the core contract
     * @param _reserve the reserve address
     * @return the available liquidity
@@ -232,10 +243,74 @@ contract LendingPoolCore is Initializable {
     }
 
     /**
-    * @dev updates the internal configuration of the core
+    * @dev gets the reserve total borrows variable
+    * @param _reserve the reserve address
+    * @return the total borrows variable
     **/
-    function refreshConfigInternal() internal {
-        lendingPoolAddress = addressesProvider.getLendingPool();
+    function getReserveTotalBorrowsVariable(address _reserve) external view returns (uint256) {
+        CoreLibrary.ReserveData storage reserve = reserves[_reserve];
+        return reserve.totalBorrowsVariable;
+    }
+
+    /**
+    * @dev gets the reserve current variable borrow rate. Is the base variable borrow rate if the reserve is empty
+    * @param _reserve the reserve address
+    * @return the reserve current variable borrow rate
+    **/
+
+    function getReserveCurrentVariableBorrowRate(address _reserve) external view returns (uint256) {
+        CoreLibrary.ReserveData storage reserve = reserves[_reserve];
+
+        if (reserve.currentVariableBorrowRate == 0) {
+            return
+                IReserveInterestRateStrategy(reserve.interestRateStrategyAddress)
+                .getBaseVariableBorrowRate();
+        }
+        return reserve.currentVariableBorrowRate;
+    }
+
+    /**
+    * @dev gets the reserve liquidity rate
+    * @param _reserve the reserve address
+    * @return the reserve liquidity rate
+    **/
+    function getReserveCurrentLiquidityRate(address _reserve) external view returns (uint256) {
+        CoreLibrary.ReserveData storage reserve = reserves[_reserve];
+        return reserve.currentLiquidityRate;
+    }
+
+    /**
+    * @dev returns the utilization rate U of a specific reserve
+    * @param _reserve the reserve for which the information is needed
+    * @return the utilization rate in ray
+    **/
+
+    function getReserveUtilizationRate(address _reserve) public view returns (uint256) {
+        CoreLibrary.ReserveData storage reserve = reserves[_reserve];
+
+        uint256 totalBorrows = reserve.getTotalBorrows();
+
+        if (totalBorrows == 0) {
+            return 0;
+        }
+
+        uint256 availableLiquidity = getReserveAvailableLiquidity(_reserve);
+
+        return totalBorrows.rayDiv(availableLiquidity.add(totalBorrows));
+    }
+
+    /**
+    * @dev gets the reserve variable borrow index
+    * @param _reserve the reserve address
+    * @return the reserve variable borrow index
+    **/
+    function getReserveVariableBorrowsCumulativeIndex(address _reserve)
+        external
+        view
+        returns (uint256)
+    {
+        CoreLibrary.ReserveData storage reserve = reserves[_reserve];
+        return reserve.lastVariableBorrowCumulativeIndex;
     }
 
     /**
@@ -246,6 +321,33 @@ contract LendingPoolCore is Initializable {
     function getReserveATokenAddress(address _reserve) public view returns (address) {
         CoreLibrary.ReserveData storage reserve = reserves[_reserve];
         return reserve.aTokenAddress;
+    }
+
+    /**
+    * @notice returns the timestamp of the last action on the reserve
+    * @param _reserve the reserve for which the information is needed
+    * @return timestamp - the last updated timestamp of the reserve
+    **/
+    function getReserveLastUpdate(address _reserve) external view returns (uint40 timestamp) {
+        CoreLibrary.ReserveData storage reserve = reserves[_reserve];
+        timestamp = reserve.lastUpdateTimestamp;
+    }
+
+    /**
+    * @dev gets the reserve liquidity cumulative index
+    * @param _reserve the reserve address
+    * @return the reserve liquidity cumulative index
+    **/
+    function getReserveLiquidityCumulativeIndex(address _reserve) external view returns (uint256) {
+        CoreLibrary.ReserveData storage reserve = reserves[_reserve];
+        return reserve.lastLiquidityCumulativeIndex;
+    }
+
+    /**
+    * @dev updates the internal configuration of the core
+    **/
+    function refreshConfigInternal() internal {
+        lendingPoolAddress = addressesProvider.getLendingPool();
     }
 
     /**
