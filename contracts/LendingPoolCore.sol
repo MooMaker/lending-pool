@@ -21,6 +21,7 @@ contract LendingPoolCore is Initializable {
 
 
     mapping(address => CoreLibrary.ReserveData) internal reserves;
+    mapping(address => mapping(address => CoreLibrary.UserReserveData)) internal usersReserveData;
     address[] public reservesList;
 
     /**
@@ -370,5 +371,75 @@ contract LendingPoolCore is Initializable {
                 reserveAlreadyAdded = true;
             }
         if (!reserveAlreadyAdded) reservesList.push(_reserve);
+    }
+
+    /**
+    * @dev calculates and returns the borrow balances of the user
+    * @param _reserve the address of the reserve
+    * @param _user the address of the user
+    * @return the principal borrow balance, the compounded balance and the balance increase since the last borrow/repay/swap/rebalance
+    **/
+
+    function getUserBorrowBalances(address _reserve, address _user)
+        public
+        view
+        returns (uint256, uint256, uint256)
+    {
+        CoreLibrary.UserReserveData storage user = usersReserveData[_user][_reserve];
+        if (user.principalBorrowBalance == 0) {
+            return (0, 0, 0);
+        }
+
+        uint256 principal = user.principalBorrowBalance;
+        uint256 compoundedBalance = CoreLibrary.getCompoundedBorrowBalance(
+            user,
+            reserves[_reserve]
+        );
+        return (principal, compoundedBalance, compoundedBalance.sub(principal));
+    }
+
+    /**
+    * @dev the variable borrow index of the user is 0 if the user is not borrowing or borrowing at stable
+    * @param _reserve the address of the reserve for which the information is needed
+    * @param _user the address of the user for which the information is needed
+    * @return the variable borrow index for the user
+    **/
+
+    function getUserVariableBorrowCumulativeIndex(address _reserve, address _user)
+        external
+        view
+        returns (uint256)
+    {
+        CoreLibrary.UserReserveData storage user = usersReserveData[_user][_reserve];
+        return user.lastVariableBorrowCumulativeIndex;
+    }
+
+    /**
+    * @param _reserve the address of the reserve for which the information is needed
+    * @param _user the address of the user for which the information is needed
+    * @return the origination fee for the user
+    **/
+    function getUserOriginationFee(address _reserve, address _user)
+        external
+        view
+        returns (uint256)
+    {
+        CoreLibrary.UserReserveData storage user = usersReserveData[_user][_reserve];
+        return user.originationFee;
+    }
+
+    /**
+    * @dev the variable borrow index of the user is 0 if the user is not borrowing or borrowing at stable
+    * @param _reserve the address of the reserve for which the information is needed
+    * @param _user the address of the user for which the information is needed
+    * @return timestamp - the variable borrow index for the user
+    **/
+    function getUserLastUpdate(address _reserve, address _user)
+        external
+        view
+        returns (uint256 timestamp)
+    {
+        CoreLibrary.UserReserveData storage user = usersReserveData[_user][_reserve];
+        timestamp = user.lastUpdateTimestamp;
     }
 }

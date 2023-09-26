@@ -131,6 +131,49 @@ contract LendingPool is ReentrancyGuard, Initializable {
         lastUpdateTimestamp = core.getReserveLastUpdate(_reserve);
     }
 
+    function getUserReserveData(address _reserve, address _user)
+        external
+        view
+        returns (
+            uint256 currentATokenBalance,
+            uint256 currentBorrowBalance,
+            uint256 principalBorrowBalance,
+            uint256 borrowRateMode,
+            uint256 borrowRate,
+            uint256 liquidityRate,
+            uint256 originationFee,
+            uint256 variableBorrowIndex,
+            uint256 lastUpdateTimestamp
+            // TODO: do we need it?
+            // bool usageAsCollateralEnabled
+        )
+    {
+        // TODO: consider using data provider
+//        return dataProvider.getUserReserveData(_reserve, _user);
+
+        currentATokenBalance = AToken(core.getReserveATokenAddress(_reserve)).balanceOf(_user);
+        // TODO: handle stable borrow rate?
+//        CoreLibrary.InterestRateMode mode = core.getUserCurrentBorrowRateMode(_reserve, _user);
+        (principalBorrowBalance, currentBorrowBalance, ) = core.getUserBorrowBalances(
+            _reserve,
+            _user
+        );
+
+        //default is 0, if mode == CoreLibrary.InterestRateMode.NONE
+//        if (mode == CoreLibrary.InterestRateMode.STABLE) {
+//            borrowRate = core.getUserCurrentStableBorrowRate(_reserve, _user);
+//        } else if (mode == CoreLibrary.InterestRateMode.VARIABLE) {
+            borrowRate = core.getReserveCurrentVariableBorrowRate(_reserve);
+//        }
+//
+        borrowRateMode = uint256(CoreLibrary.InterestRateMode.VARIABLE);
+        liquidityRate = core.getReserveCurrentLiquidityRate(_reserve);
+        originationFee = core.getUserOriginationFee(_reserve, _user);
+        variableBorrowIndex = core.getUserVariableBorrowCumulativeIndex(_reserve, _user);
+        lastUpdateTimestamp = core.getUserLastUpdate(_reserve, _user);
+//        usageAsCollateralEnabled = core.isUserUseReserveAsCollateralEnabled(_reserve, _user);
+    }
+
     /**
     * @dev internal function to save on code size for the onlyActiveReserve modifier
     **/
