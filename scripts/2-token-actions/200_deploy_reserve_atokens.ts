@@ -4,7 +4,7 @@ import {getTokenListForNetwork} from "../../lib/utils/token";
 import {writeToJSON} from "../../lib/test/utils";
 import {TOKEN_DECIMALS} from "../../lib/constants/tokens";
 
-type ATokenInfo = {
+export type ATokenInfo = {
     symbol: string;
     name: string;
     underlyingAssetAddress: string;

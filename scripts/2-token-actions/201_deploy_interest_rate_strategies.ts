@@ -10,7 +10,7 @@ type InterestRateStrategy = {
     variableRateSlope2: number;
 }
 
-const STRATEGY_VOLATILE_ONE: InterestRateStrategy = {
+export const STRATEGY_VOLATILE_ONE: InterestRateStrategy = {
     optimalUsage: 45,
     baseVariableBorrowRate: 0,
     // TODO: convert properly to RAY

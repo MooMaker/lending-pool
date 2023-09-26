@@ -4,7 +4,7 @@ import {Scenario} from "./types";
 import DEPOSIT_SCENARIO from './scenarios/deposit.json';
 import {executeStory} from "../../lib/test/scenarios/scenario-engine";
 
-const scenario = [
+const scenarioSpec = [
     DEPOSIT_SCENARIO as Scenario
 ];
 
@@ -15,7 +15,7 @@ describe('Scenario tests', () => {
         users = await hre.getUnnamedAccounts();
     });
 
-    scenario.forEach((scenario) => {
+    scenarioSpec.forEach((scenario) => {
         describe.only(scenario.title, () => {
             scenario.stories.forEach((story) => {
                 it(story.description, async () => {
