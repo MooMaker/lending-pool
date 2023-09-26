@@ -93,6 +93,87 @@ contract LendingPool is ReentrancyGuard, Initializable {
         emit Deposit(_reserve, msg.sender, _amount, block.timestamp);
     }
 
+    function getReserveData(address _reserve)
+        external
+        view
+        returns (
+            uint256 totalLiquidity,
+            uint256 availableLiquidity,
+//          TODO: do we need them?
+//            uint256 totalBorrowsStable,
+            uint256 totalBorrowsVariable,
+            uint256 liquidityRate,
+            uint256 variableBorrowRate,
+//            uint256 stableBorrowRate,
+//            uint256 averageStableBorrowRate,
+            uint256 utilizationRate,
+            uint256 liquidityIndex,
+            uint256 variableBorrowIndex,
+            address aTokenAddress,
+            uint40 lastUpdateTimestamp
+        )
+    {
+        // TODO: consider using data provider
+        //   return dataProvider.getReserveData(_reserve);
+
+        totalLiquidity = core.getReserveTotalLiquidity(_reserve);
+        availableLiquidity = core.getReserveAvailableLiquidity(_reserve);
+//        totalBorrowsStable = core.getReserveTotalBorrowsStable(_reserve);
+        totalBorrowsVariable = core.getReserveTotalBorrowsVariable(_reserve);
+        liquidityRate = core.getReserveCurrentLiquidityRate(_reserve);
+        variableBorrowRate = core.getReserveCurrentVariableBorrowRate(_reserve);
+//        stableBorrowRate = core.getReserveCurrentStableBorrowRate(_reserve);
+//        averageStableBorrowRate = core.getReserveCurrentAverageStableBorrowRate(_reserve);
+        utilizationRate = core.getReserveUtilizationRate(_reserve);
+        liquidityIndex = core.getReserveLiquidityCumulativeIndex(_reserve);
+        variableBorrowIndex = core.getReserveVariableBorrowsCumulativeIndex(_reserve);
+        aTokenAddress = core.getReserveATokenAddress(_reserve);
+        lastUpdateTimestamp = core.getReserveLastUpdate(_reserve);
+    }
+
+    function getUserReserveData(address _reserve, address _user)
+        external
+        view
+        returns (
+            uint256 currentATokenBalance,
+            uint256 currentBorrowBalance,
+            uint256 principalBorrowBalance,
+            uint256 borrowRateMode,
+            uint256 borrowRate,
+            uint256 liquidityRate,
+            uint256 originationFee,
+            uint256 variableBorrowIndex,
+            uint256 lastUpdateTimestamp
+            // TODO: do we need it?
+            // bool usageAsCollateralEnabled
+        )
+    {
+        // TODO: consider using data provider
+//        return dataProvider.getUserReserveData(_reserve, _user);
+
+        currentATokenBalance = AToken(core.getReserveATokenAddress(_reserve)).balanceOf(_user);
+        // TODO: handle stable borrow rate?
+//        CoreLibrary.InterestRateMode mode = core.getUserCurrentBorrowRateMode(_reserve, _user);
+        (principalBorrowBalance, currentBorrowBalance, ) = core.getUserBorrowBalances(
+            _reserve,
+            _user
+        );
+
+        //default is 0, if mode == CoreLibrary.InterestRateMode.NONE
+//        if (mode == CoreLibrary.InterestRateMode.STABLE) {
+//            borrowRate = core.getUserCurrentStableBorrowRate(_reserve, _user);
+//        } else if (mode == CoreLibrary.InterestRateMode.VARIABLE) {
+            borrowRate = core.getReserveCurrentVariableBorrowRate(_reserve);
+//        }
+//
+        borrowRateMode = uint256(CoreLibrary.InterestRateMode.VARIABLE);
+        liquidityRate = core.getReserveCurrentLiquidityRate(_reserve);
+        originationFee = core.getUserOriginationFee(_reserve, _user);
+        variableBorrowIndex = core.getUserVariableBorrowCumulativeIndex(_reserve, _user);
+        lastUpdateTimestamp = core.getUserLastUpdate(_reserve, _user);
+//        usageAsCollateralEnabled = core.isUserUseReserveAsCollateralEnabled(_reserve, _user);
+    }
+
     /**
     * @dev internal function to save on code size for the onlyActiveReserve modifier
     **/

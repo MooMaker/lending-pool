@@ -8,7 +8,24 @@ library CoreLibrary {
     using SafeMath for uint256;
     using WadRayMath for uint256;
 
+    // TODO(stable): handle stable rate mode?
+    enum InterestRateMode {NONE, /*STABLE,*/ VARIABLE}
+
     uint256 internal constant SECONDS_PER_YEAR = 365 days;
+
+    struct UserReserveData {
+        //principal amount borrowed by the user.
+        uint256 principalBorrowBalance;
+        //cumulated variable borrow index for the user. Expressed in ray
+        uint256 lastVariableBorrowCumulativeIndex;
+        //origination fee cumulated by the user
+        uint256 originationFee;
+        // stable borrow rate at which the user has borrowed. Expressed in ray
+//        uint256 stableBorrowRate;
+        uint40 lastUpdateTimestamp;
+        //defines if a specific deposit should or not be used as a collateral in borrows
+//        bool useAsCollateral;
+    }
 
     struct ReserveData {
         //the liquidity index. Expressed in ray
@@ -169,5 +186,53 @@ library CoreLibrary {
         returns (uint256)
     {
         return _reserve.totalBorrowsVariable;
+    }
+
+    /**
+    * @dev calculates the compounded borrow balance of a user
+    * @param _self the userReserve object
+    * @param _reserve the reserve object
+    * @return the user compounded borrow balance
+    **/
+    function getCompoundedBorrowBalance(
+        CoreLibrary.UserReserveData storage _self,
+        CoreLibrary.ReserveData storage _reserve
+    ) internal view returns (uint256) {
+        if (_self.principalBorrowBalance == 0) return 0;
+
+        uint256 principalBorrowBalanceRay = _self.principalBorrowBalance.wadToRay();
+        uint256 compoundedBalance = 0;
+        uint256 cumulatedInterest = 0;
+
+        // TODO: handle stable?
+//        if (_self.stableBorrowRate > 0) {
+//            cumulatedInterest = calculateCompoundedInterest(
+//                _self.stableBorrowRate,
+//                _self.lastUpdateTimestamp
+//            );
+//        } else {
+            //variable interest
+            cumulatedInterest = calculateCompoundedInterest(
+                _reserve
+                .currentVariableBorrowRate,
+                _reserve
+                .lastUpdateTimestamp
+            ).rayMul(_reserve.lastVariableBorrowCumulativeIndex)
+            .rayDiv(_self.lastVariableBorrowCumulativeIndex);
+//        }
+
+        compoundedBalance = principalBorrowBalanceRay.rayMul(cumulatedInterest).rayToWad();
+
+        if (compoundedBalance == _self.principalBorrowBalance) {
+            //solium-disable-next-line
+            if (_self.lastUpdateTimestamp != block.timestamp) {
+                //no interest cumulation because of the rounding - we add 1 wei
+                //as symbolic cumulated interest to avoid interest free loans.
+
+                return _self.principalBorrowBalance.add(1 wei);
+            }
+        }
+
+        return compoundedBalance;
     }
 }
