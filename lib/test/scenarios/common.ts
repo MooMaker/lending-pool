@@ -13,10 +13,10 @@ import {TOKEN_DECIMALS} from "../../constants/tokens";
 import {ATokenInfo} from "../../../scripts/2-token-actions/200_deploy_reserve_atokens";
 import {STRATEGY_VOLATILE_ONE} from "../../../scripts/2-token-actions/201_deploy_interest_rate_strategies";
 
-export async function getEnvironment(network: Network): Promise<{
+export async function getEnvironment(): Promise<{
     tokens: { [key: string]: IERC20 }
 }> {
-    const tokenList = getTokenListForNetwork(network);
+    const tokenList = getTokenListForNetwork(hre.network);
 
     const tokens: { [key: string]: IERC20 } = {};
     tokens['USDC'] = await hre.ethers.getContractAt('IERC20', tokenList.USDC);
@@ -31,7 +31,8 @@ export async function setupContracts(): Promise<{
     addressesProvider: AddressesProvider,
     lendingPool: LendingPool,
     lendingPoolCore: LendingPoolCore,
-    aTokens: { [key: string]: AToken }
+    aTokensPerSymbol: { [key: string]: AToken }
+    aTokensPerAddress: { [key: string]: AToken }
     interestRateStrategies: { [key: string]: DefaultReserveInterestRateStrategy }
 }> {
     const deploy = async () => {
@@ -93,7 +94,9 @@ export async function setupContracts(): Promise<{
             decimals: TOKEN_DECIMALS.DAI,
         }];
 
-        const aTokens: { [key: string]: AToken } = {};
+        const aTokensPerSymbol: { [key: string]: AToken } = {};
+        const aTokensPerAddress: { [key: string]: AToken } = {};
+
         for (const token of TOKENS) {
             const name = `${tokenPrefix}${token.symbol}`;
             const aTokenFactory = await hre.ethers.getContractFactory('AToken');
@@ -105,13 +108,19 @@ export async function setupContracts(): Promise<{
                 token.symbol
             );
 
-            aTokens[name] = aToken;
+            const address = await aToken.getAddress();
+
+            aTokensPerSymbol[name] = aToken;
+            aTokensPerAddress[address] = aToken;
         }
 
-        return aTokens;
+        return { aTokensPerSymbol, aTokensPerAddress };
     }
 
-    const aTokens = await deployATokens();
+    const {
+        aTokensPerSymbol,
+        aTokensPerAddress
+    } = await deployATokens();
 
     const deployInterestRateStrategies = async () => {
         const tokenList = getTokenListForNetwork(hre.network);
@@ -164,19 +173,19 @@ export async function setupContracts(): Promise<{
                 tokenSymbol: 'ETH',
                 tokenAddress: tokenList.ETH,
                 strategy: interestRateStrategies['ETHInterestRateStrategy'],
-                aToken: aTokens['ETH'],
+                aToken: aTokensPerSymbol['aETH'],
             },
             {
                 tokenSymbol: 'USDC',
                 tokenAddress: tokenList.USDC,
                 strategy: interestRateStrategies['USDCInterestRateStrategy'],
-                aToken: aTokens['USDC'],
+                aToken: aTokensPerSymbol['aUSDC'],
             },
             {
                 tokenSymbol: 'DAI',
                 tokenAddress: tokenList.DAI,
                 strategy: interestRateStrategies['DAIInterestRateStrategy'],
-                aToken: aTokens['DAI'],
+                aToken: aTokensPerSymbol['aDAI'],
             }
         ];
 
@@ -200,7 +209,8 @@ export async function setupContracts(): Promise<{
         addressesProvider,
         lendingPool,
         lendingPoolCore,
-        aTokens,
+        aTokensPerSymbol,
+        aTokensPerAddress,
         interestRateStrategies
     }
 }

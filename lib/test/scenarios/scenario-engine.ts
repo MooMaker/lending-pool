@@ -1,5 +1,5 @@
 import {Action, Story} from "../../../test/scenario/types";
-import {approve, transfer} from "./actions";
+import {approve, deposit, transfer} from "./actions";
 
 export const executeStory = async (story: Story, users: string[]) => {
     for (const action of story.actions) {
@@ -28,7 +28,7 @@ const executeAction = async (action: Action, users: string[]) => {
     const userAddress = users[parseInt(user)];
 
     switch (name) {
-        case 'transfer':
+        case 'transfer': {
             const { amount} = action.args;
 
             if (!amount || amount === '') {
@@ -37,9 +37,20 @@ const executeAction = async (action: Action, users: string[]) => {
 
             await transfer(reserve, amount, userAddress);
             break;
-
+        }
         case 'approve':
             await approve(reserve, userAddress);
             break;
+
+        case 'deposit': {
+            let {amount, sendValue} = action.args;
+
+            if (!amount || amount === '') {
+                throw `Invalid amount to deposit into the ${reserve} reserve`;
+            }
+
+            await deposit(reserve, amount, userAddress, sendValue, expected, revertMessage);
+            break;
+        }
     }
 };
