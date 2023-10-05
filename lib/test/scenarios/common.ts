@@ -6,7 +6,6 @@ import {
     LendingPool,
     LendingPoolCore
 } from "../../../typechain-types";
-import {Network} from "hardhat/types";
 import {getTokenListForNetwork} from "../../utils/token";
 import {TOKEN_DECIMALS} from "../../constants/tokens";
 import {ATokenInfo} from "../../../scripts/2-token-actions/200_deploy_reserve_atokens";
@@ -49,9 +48,9 @@ export async function setupContracts(): Promise<{
     addressesProvider: AddressesProvider,
     lendingPool: LendingPool,
     lendingPoolCore: LendingPoolCore,
-    aTokensPerSymbol: { [key: string]: AToken }
-    aTokensPerAddress: { [key: string]: AToken }
-    interestRateStrategies: { [key: string]: DefaultReserveInterestRateStrategy }
+    aTokensPerSymbol: Map<string, AToken>
+    aTokensPerAddress: Map<string, AToken>
+    interestRateStrategies: Map<string, DefaultReserveInterestRateStrategy>
 }> {
     const deploy = async () => {
         const addressesProviderFactory = await hre.ethers.getContractFactory('AddressesProvider');
@@ -103,25 +102,30 @@ export async function setupContracts(): Promise<{
             throw new Error(`One of the token addresses is missing: \nETH: ${ethAddress}\nUSDC: ${usdcAddress}\nDAI: ${daiAddress}\nPlease check the token list in 'lib/utils/token.ts`);
         }
 
+        const [ethDecimals, usdcDecimals, daiDecimals] = [TOKEN_DECIMALS.get('ETH'), TOKEN_DECIMALS.get('USDC'), TOKEN_DECIMALS.get('DAI')];
+        if (!ethDecimals || !usdcDecimals || !daiDecimals) {
+            throw new Error(`One of the token decimals is missing: \nETH: ${ethDecimals}\nUSDC: ${usdcDecimals}\nDAI: ${daiDecimals}\nPlease check the token decimals in 'lib/constants/tokens.ts`);
+        }
+
         const TOKENS: ATokenInfo[] = [{
             symbol: 'ETH',
             name: 'Liquorice interest bearing ETH',
             underlyingAssetAddress: ethAddress,
-            decimals: TOKEN_DECIMALS.ETH,
+            decimals: ethDecimals,
         }, {
             symbol: 'USDC',
             name: 'Liquorice interest bearing USDC',
             underlyingAssetAddress: usdcAddress,
-            decimals: TOKEN_DECIMALS.USDC,
+            decimals: usdcDecimals
         }, {
             symbol: 'DAI',
             name: 'Liquorice interest bearing DAI',
             underlyingAssetAddress: daiAddress,
-            decimals: TOKEN_DECIMALS.DAI,
+            decimals: daiDecimals
         }];
 
-        const aTokensPerSymbol: { [key: string]: AToken } = {};
-        const aTokensPerAddress: { [key: string]: AToken } = {};
+        const aTokensPerSymbol: Map<string, AToken> = new Map<string, AToken>();
+        const aTokensPerAddress: Map<string, AToken> = new Map<string, AToken>();
 
         for (const token of TOKENS) {
             const name = `${tokenPrefix}${token.symbol}`;
@@ -136,8 +140,8 @@ export async function setupContracts(): Promise<{
 
             const address = await aToken.getAddress();
 
-            aTokensPerSymbol[name] = aToken;
-            aTokensPerAddress[address] = aToken;
+            aTokensPerSymbol.set(name, aToken);
+            aTokensPerAddress.set(address, aToken);
         }
 
         return { aTokensPerSymbol, aTokensPerAddress };
@@ -177,7 +181,7 @@ export async function setupContracts(): Promise<{
             }
         ];
 
-        const interestRateStrategies: { [key: string]: DefaultReserveInterestRateStrategy } = {};
+        const interestRateStrategies = new Map<string, DefaultReserveInterestRateStrategy>;
         for (const strategyInfo of strategyInfoList) {
             const { tokenSymbol, tokenAddress, strategy } = strategyInfo;
             const name = `${tokenSymbol}InterestRateStrategy`;
@@ -191,7 +195,7 @@ export async function setupContracts(): Promise<{
                 strategy.variableRateSlope2,
             );
 
-            interestRateStrategies[name] = interestRateStrategy;
+            interestRateStrategies.set(name, interestRateStrategy);
         }
 
         return interestRateStrategies;
@@ -210,24 +214,38 @@ export async function setupContracts(): Promise<{
             throw new Error(`One of the token addresses is missing: \nETH: ${ethAddress}\nUSDC: ${usdcAddress}\nDAI: ${daiAddress}\nPlease check the token list in 'lib/utils/token.ts`);
         }
 
+        const [ethInterestRateStrategy, usdcInterestRateStrategy, daiInterestRateStrategy] = [
+            interestRateStrategies.get('ETHInterestRateStrategy'), interestRateStrategies.get('USDCInterestRateStrategy'), interestRateStrategies.get('DAIInterestRateStrategy')
+        ];
+
+        if (!ethInterestRateStrategy || !usdcInterestRateStrategy || !daiInterestRateStrategy) {
+            throw new Error(`One of the interest rate strategies is missing: \nETH: ${ethInterestRateStrategy}\nUSDC: ${usdcInterestRateStrategy}\nDAI: ${daiInterestRateStrategy}\nPlease check the interest rate strategies in 'lib/test/scenarios/common.ts`);
+        }
+
+        const [aETH, aUSDC, aDAI] = [aTokensPerSymbol.get('aETH'), aTokensPerSymbol.get('aUSDC'), aTokensPerSymbol.get('aDAI')];
+
+        if (!aETH || !aUSDC || !aDAI) {
+            throw new Error(`One of the aTokens is missing: \nETH: ${aETH}\nUSDC: ${aUSDC}\nDAI: ${aDAI}\nPlease check the aTokens in 'lib/test/scenarios/common.ts`);
+        }
+
         const reservesList = [
             {
                 tokenSymbol: 'ETH',
                 tokenAddress: ethAddress,
-                strategy: interestRateStrategies['ETHInterestRateStrategy'],
-                aToken: aTokensPerSymbol['aETH'],
+                strategy: ethInterestRateStrategy,
+                aToken: aETH
             },
             {
                 tokenSymbol: 'USDC',
                 tokenAddress: usdcAddress,
-                strategy: interestRateStrategies['USDCInterestRateStrategy'],
-                aToken: aTokensPerSymbol['aUSDC'],
+                strategy: usdcInterestRateStrategy,
+                aToken: aUSDC
             },
             {
                 tokenSymbol: 'DAI',
                 tokenAddress: daiAddress,
-                strategy: interestRateStrategies['DAIInterestRateStrategy'],
-                aToken: aTokensPerSymbol['aDAI'],
+                strategy: daiInterestRateStrategy,
+                aToken: aDAI
             }
         ];
 

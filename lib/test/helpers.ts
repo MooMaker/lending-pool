@@ -53,13 +53,13 @@ export const convertToCurrencyDecimals = (currencySymbol: string, amount: string
     let decimals;
     switch (currencySymbol) {
         case 'ETH':
-            decimals = TOKEN_DECIMALS.ETH;
+            decimals = TOKEN_DECIMALS.get('ETH');
             break;
         case 'USDC':
-            decimals = TOKEN_DECIMALS.USDC;
+            decimals = TOKEN_DECIMALS.get('USDC');
             break;
         case 'DAI':
-            decimals = TOKEN_DECIMALS.DAI;
+            decimals = TOKEN_DECIMALS.get('DAI');
             break;
         default:
             throw `Could not find decimals for currency ${currencySymbol}`;
@@ -186,7 +186,7 @@ const getATokenUserData = async (
     const aTokenAddress: string = await coreInstance.getReserveATokenAddress(reserve);
 
     const { aTokensPerAddress } = getConfig().contracts;
-    const aTokenInstance = aTokensPerAddress[aTokenAddress];
+    const aTokenInstance = aTokensPerAddress.get(aTokenAddress);
 
     if (!aTokenInstance) {
         throw `Could not find aToken instance for ${aTokenAddress}`;

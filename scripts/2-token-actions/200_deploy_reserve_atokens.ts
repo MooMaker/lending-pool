@@ -24,23 +24,28 @@ const setupFunction: DeployFunction = async function (hre: HardhatRuntimeEnviron
         throw `One of the token addresses is missing: \nETH: ${ethAddress}\nUSDC: ${usdcAddress}\nDAI: ${daiAddress}\nPlease check the token list in 'lib/utils/token.ts`;
     }
 
+    const [ethDecimals, usdcDecimals, daiDecimals] = [TOKEN_DECIMALS.get('ETH'), TOKEN_DECIMALS.get('USDC'), TOKEN_DECIMALS.get('DAI')];
+    if (!ethDecimals || !usdcDecimals || !daiDecimals) {
+        throw `One of the token decimals is missing: \nETH: ${ethDecimals}\nUSDC: ${usdcDecimals}\nDAI: ${daiDecimals}\nPlease check the token decimals in 'lib/constants/tokens.ts`;
+    }
+
     const tokenPrefix = 'a';
 
     const TOKENS: ATokenInfo[] = [{
         symbol: 'ETH',
         name: 'Liquorice interest bearing ETH',
         underlyingAssetAddress: ethAddress,
-        decimals: TOKEN_DECIMALS.ETH,
+        decimals: ethDecimals,
     }, {
         symbol: 'USDC',
         name: 'Liquorice interest bearing USDC',
         underlyingAssetAddress: usdcAddress,
-        decimals: TOKEN_DECIMALS.USDC,
+        decimals: usdcDecimals,
     }, {
         symbol: 'DAI',
         name: 'Liquorice interest bearing DAI',
         underlyingAssetAddress: daiAddress,
-        decimals: TOKEN_DECIMALS.DAI,
+        decimals: usdcDecimals,
     }];
 
     const addressesProvider = await deployments.get('AddressesProvider');

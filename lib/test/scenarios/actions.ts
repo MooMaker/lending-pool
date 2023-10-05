@@ -19,12 +19,8 @@ type ActionsConfig = {
     contracts: {
         lendingPool?: LendingPool;
         lendingPoolCore?: LendingPoolCore;
-        aTokensPerAddress: {
-            [key: string]: AToken;
-        }
-        aTokensPerSymbol: {
-            [key: string]: AToken;
-        }
+        aTokensPerAddress: Map<string, AToken>;
+        aTokensPerSymbol: Map<string, AToken>;
     }
     ethereumAddress: string;
     skipIntegrityCheck: boolean;
@@ -32,8 +28,8 @@ type ActionsConfig = {
 
 let _config: ActionsConfig = {
     contracts: {
-        aTokensPerSymbol: {},
-        aTokensPerAddress: {},
+        aTokensPerSymbol: new Map(),
+        aTokensPerAddress: new Map(),
     },
     ethereumAddress: ETH_ADDRESS,
     skipIntegrityCheck: false
