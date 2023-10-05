@@ -4,8 +4,6 @@ pragma solidity ^0.8.18;
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-import "hardhat/console.sol";
-
 import "./configuration/AddressesProvider.sol";
 import "./token/AToken.sol";
 import "./LendingPoolCore.sol";
@@ -73,7 +71,6 @@ contract LendingPool is ReentrancyGuard, Initializable {
         // onlyUnfreezedReserve(_reserve)
         onlyAmountGreaterThanZero(_amount)
     {
-        console.log("Depositing tokens");
         // Locate the aToken to issue to user on deposit
         AToken aToken = AToken(core.getReserveATokenAddress(_reserve));
 
@@ -93,7 +90,6 @@ contract LendingPool is ReentrancyGuard, Initializable {
         core.transferToReserve{ value: msg.value }(_reserve, payable(msg.sender), _amount);
 
         uint256 balanceAfter = aToken.underlying().balanceOf(address(core));
-        console.log("Balance after", balanceAfter);
 
         //solium-disable-next-line
         emit Deposit(_reserve, msg.sender, _amount, block.timestamp);
