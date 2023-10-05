@@ -27,17 +27,17 @@ const setupFunction: DeployFunction = async function (hre: HardhatRuntimeEnviron
     const strategyInfoList = [
         {
             tokenSymbol: 'ETH',
-            tokenAddress: tokenList.ETH,
+            tokenAddress: tokenList.get('ETH'),
             strategy: STRATEGY_VOLATILE_ONE,
         },
         {
             tokenSymbol: 'USDC',
-            tokenAddress: tokenList.USDC,
+            tokenAddress: tokenList.get('USDC'),
             strategy: STRATEGY_VOLATILE_ONE,
         },
         {
             tokenSymbol: 'DAI',
-            tokenAddress: tokenList.DAI,
+            tokenAddress: tokenList.get('DAI'),
             strategy: STRATEGY_VOLATILE_ONE,
         }
     ];

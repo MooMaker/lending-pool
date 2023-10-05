@@ -12,23 +12,32 @@ import {TOKEN_DECIMALS} from "../../constants/tokens";
 import {ATokenInfo} from "../../../scripts/2-token-actions/200_deploy_reserve_atokens";
 import {STRATEGY_VOLATILE_ONE} from "../../../scripts/2-token-actions/201_deploy_interest_rate_strategies";
 
+export type TokenSymbol = string;
+export type TokenAddress = string;
+
 export async function getEnvironment(): Promise<{
-    tokens: { [key: string]: ERC20 },
-    tokensPerAddress: Map<string, ERC20>
+    tokens: Map<TokenSymbol, ERC20>
+    tokensPerAddress: Map<TokenAddress, ERC20>
 }> {
     const tokenList = getTokenListForNetwork(hre.network);
 
-    const tokens: { [key: string]: ERC20 } = {};
-    tokens['USDC'] = await hre.ethers.getContractAt('ERC20', tokenList.USDC);
-    tokens['DAI'] = await hre.ethers.getContractAt('ERC20', tokenList.DAI);
+    const usdcAddress = tokenList.get('USDC');
+    const daiAddress = tokenList.get('DAI');
+
+    if (!usdcAddress || !daiAddress) {
+        throw new Error(`Address for one of the tokens is not found.\nUSDC: ${usdcAddress}\nDAI: ${daiAddress}`);
+    }
+
+    const usdc = await hre.ethers.getContractAt('ERC20', usdcAddress);
+    const dai = await hre.ethers.getContractAt('ERC20', daiAddress);
+
+    const tokens: Map<string, ERC20> = new Map<string, ERC20>();
+    tokens.set('USDC', usdc);
+    tokens.set('DAI', dai);
 
     const tokensPerAddress = new Map<string, ERC20>();
-
-
-    for (let key of Object.keys(tokens)) {
-        const tokenContract = tokens[key];
-        tokensPerAddress.set(await tokenContract.getAddress(), tokenContract);
-    }
+    tokensPerAddress.set(usdcAddress, usdc);
+    tokensPerAddress.set(daiAddress, dai);
 
     return {
         tokens,
@@ -86,20 +95,28 @@ export async function setupContracts(): Promise<{
 
         const tokenPrefix = 'a';
 
+        const ethAddress = tokenList.get('ETH');
+        const usdcAddress = tokenList.get('USDC');
+        const daiAddress = tokenList.get('DAI');
+
+        if (!ethAddress || !usdcAddress || !daiAddress) {
+            throw new Error(`One of the token addresses is missing: \nETH: ${ethAddress}\nUSDC: ${usdcAddress}\nDAI: ${daiAddress}\nPlease check the token list in 'lib/utils/token.ts`);
+        }
+
         const TOKENS: ATokenInfo[] = [{
             symbol: 'ETH',
             name: 'Liquorice interest bearing ETH',
-            underlyingAssetAddress: tokenList.ETH,
+            underlyingAssetAddress: ethAddress,
             decimals: TOKEN_DECIMALS.ETH,
         }, {
             symbol: 'USDC',
             name: 'Liquorice interest bearing USDC',
-            underlyingAssetAddress: tokenList.USDC,
+            underlyingAssetAddress: usdcAddress,
             decimals: TOKEN_DECIMALS.USDC,
         }, {
             symbol: 'DAI',
             name: 'Liquorice interest bearing DAI',
-            underlyingAssetAddress: tokenList.DAI,
+            underlyingAssetAddress: daiAddress,
             decimals: TOKEN_DECIMALS.DAI,
         }];
 
@@ -134,20 +151,28 @@ export async function setupContracts(): Promise<{
     const deployInterestRateStrategies = async () => {
         const tokenList = getTokenListForNetwork(hre.network);
 
+        const ethAddress = tokenList.get('ETH');
+        const usdcAddress = tokenList.get('USDC');
+        const daiAddress = tokenList.get('DAI');
+
+        if (!ethAddress || !usdcAddress || !daiAddress) {
+            throw new Error(`One of the token addresses is missing: \nETH: ${ethAddress}\nUSDC: ${usdcAddress}\nDAI: ${daiAddress}\nPlease check the token list in 'lib/utils/token.ts`);
+        }
+
         const strategyInfoList = [
             {
                 tokenSymbol: 'ETH',
-                tokenAddress: tokenList.ETH,
+                tokenAddress: ethAddress,
                 strategy: STRATEGY_VOLATILE_ONE,
             },
             {
                 tokenSymbol: 'USDC',
-                tokenAddress: tokenList.USDC,
+                tokenAddress: usdcAddress,
                 strategy: STRATEGY_VOLATILE_ONE,
             },
             {
                 tokenSymbol: 'DAI',
-                tokenAddress: tokenList.DAI,
+                tokenAddress: daiAddress,
                 strategy: STRATEGY_VOLATILE_ONE,
             }
         ];
@@ -177,22 +202,30 @@ export async function setupContracts(): Promise<{
     const initReserves = async () => {
         const tokenList = getTokenListForNetwork(hre.network);
 
+        const ethAddress = tokenList.get('ETH');
+        const usdcAddress = tokenList.get('USDC');
+        const daiAddress = tokenList.get('DAI');
+
+        if (!ethAddress || !usdcAddress || !daiAddress) {
+            throw new Error(`One of the token addresses is missing: \nETH: ${ethAddress}\nUSDC: ${usdcAddress}\nDAI: ${daiAddress}\nPlease check the token list in 'lib/utils/token.ts`);
+        }
+
         const reservesList = [
             {
                 tokenSymbol: 'ETH',
-                tokenAddress: tokenList.ETH,
+                tokenAddress: ethAddress,
                 strategy: interestRateStrategies['ETHInterestRateStrategy'],
                 aToken: aTokensPerSymbol['aETH'],
             },
             {
                 tokenSymbol: 'USDC',
-                tokenAddress: tokenList.USDC,
+                tokenAddress: usdcAddress,
                 strategy: interestRateStrategies['USDCInterestRateStrategy'],
                 aToken: aTokensPerSymbol['aUSDC'],
             },
             {
                 tokenSymbol: 'DAI',
-                tokenAddress: tokenList.DAI,
+                tokenAddress: daiAddress,
                 strategy: interestRateStrategies['DAIInterestRateStrategy'],
                 aToken: aTokensPerSymbol['aDAI'],
             }

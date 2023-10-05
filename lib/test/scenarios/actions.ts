@@ -12,7 +12,7 @@ import {ContractTransactionResponse} from "../../../../../dev/ethers.js";
 import {calcExpectedReserveDataAfterDeposit, calcExpectedUserDataAfterDeposit} from "../calculations";
 import {ReserveData, UserReserveData} from "../../types";
 import {expect} from "chai";
-import {AToken, ERC20, LendingPool, LendingPoolCore} from "../../../typechain-types";
+import {AToken, LendingPool, LendingPoolCore} from "../../../typechain-types";
 import {getEnvironment} from "./common";
 
 type ActionsConfig = {
@@ -48,7 +48,7 @@ export const getConfig = () => {
 }
 
 export const transfer = async (reserveSymbol: string, amount: string, user: string) => {
-    const { tokens } = await getEnvironment();
+    const { tokensPerAddress } = await getEnvironment();
 
     const reserve = await getReserveAddressFromSymbol(reserveSymbol);
 
@@ -56,7 +56,7 @@ export const transfer = async (reserveSymbol: string, amount: string, user: stri
         throw 'Cannot mint ethereum. Mint action is most likely not needed in this story';
     }
 
-    const tokenContract = tokens[reserveSymbol];
+    const tokenContract = tokensPerAddress.get(reserve);
     if (!tokenContract) {
         throw `Token contract not found for ${reserveSymbol}`;
     }
@@ -94,7 +94,10 @@ export const approve = async (reserveSymbol: string, userAddress: string) => {
         throw 'Cannot mint ethereum. Mint action is most likely not needed in this story';
     }
 
-    const tokenContract = tokens[reserveSymbol];
+    const tokenContract = tokens.get(reserveSymbol);
+    if (!tokenContract) {
+        throw `Token contract not found for ${reserveSymbol}`;
+    }
 
     const user = await hre.ethers.getSigner(userAddress);
     const userBalance = await tokenContract.balanceOf(userAddress);
@@ -123,8 +126,7 @@ export const deposit = async (
     const { lendingPool, lendingPoolCore } = _config.contracts;
     const { tokens } = await getEnvironment();
 
-    const tokenContract = tokens[reserveSymbol];
-
+    const tokenContract = tokens.get(reserveSymbol);
     if (!tokenContract) {
         throw `Token contract not found for ${reserveSymbol}`;
     }
@@ -167,7 +169,7 @@ export const deposit = async (
     console.log(`[Action: Deposit] User ${userAddress} with balance of ${hre.ethers.formatUnits(balance, decimals)} ${reserveSymbol} deposits ${amount} ${reserveSymbol} to the pool`);
     if (expectedResult === 'success') {
         const { tokens } = await getEnvironment();
-        const dai = tokens['DAI'];
+        const dai = tokens.get('DAI');
         if (!dai) {
             throw 'DAI token not found in environment';
         }

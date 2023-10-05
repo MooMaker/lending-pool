@@ -16,23 +16,30 @@ const setupFunction: DeployFunction = async function (hre: HardhatRuntimeEnviron
     const { deployments } = hre;
 
     const tokenList = getTokenListForNetwork(hre.network);
+    const ethAddress = tokenList.get('ETH');
+    const usdcAddress = tokenList.get('USDC');
+    const daiAddress = tokenList.get('DAI');
+
+    if (!ethAddress || !usdcAddress || !daiAddress) {
+        throw `One of the token addresses is missing: \nETH: ${ethAddress}\nUSDC: ${usdcAddress}\nDAI: ${daiAddress}\nPlease check the token list in 'lib/utils/token.ts`;
+    }
 
     const tokenPrefix = 'a';
 
     const TOKENS: ATokenInfo[] = [{
         symbol: 'ETH',
         name: 'Liquorice interest bearing ETH',
-        underlyingAssetAddress: tokenList.ETH,
+        underlyingAssetAddress: ethAddress,
         decimals: TOKEN_DECIMALS.ETH,
     }, {
         symbol: 'USDC',
         name: 'Liquorice interest bearing USDC',
-        underlyingAssetAddress: tokenList.USDC,
+        underlyingAssetAddress: usdcAddress,
         decimals: TOKEN_DECIMALS.USDC,
     }, {
         symbol: 'DAI',
         name: 'Liquorice interest bearing DAI',
-        underlyingAssetAddress: tokenList.DAI,
+        underlyingAssetAddress: daiAddress,
         decimals: TOKEN_DECIMALS.DAI,
     }];
 
