@@ -7,14 +7,48 @@ import {
     getReserveData, getUserData,
     getWhaleAddressForToken
 } from "../helpers";
-import {getEnvironment, setupContracts} from "./common";
-import {loadFixture} from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import {ETH as ETH_ADDRESS} from "../../constants/tokens";
 import {ContractTransactionResponse} from "../../../../../dev/ethers.js";
-import {calcExpectedReserveDataAfterDeposit} from "../calculations";
+import {calcExpectedReserveDataAfterDeposit, calcExpectedUserDataAfterDeposit} from "../calculations";
+import {ReserveData, UserReserveData} from "../../types";
+import {expect} from "chai";
+import {AToken, ERC20, LendingPool, LendingPoolCore} from "../../../typechain-types";
+import {getEnvironment} from "./common";
+
+type ActionsConfig = {
+    contracts: {
+        lendingPool?: LendingPool;
+        lendingPoolCore?: LendingPoolCore;
+        aTokensPerAddress: {
+            [key: string]: AToken;
+        }
+        aTokensPerSymbol: {
+            [key: string]: AToken;
+        }
+    }
+    ethereumAddress: string;
+    skipIntegrityCheck: boolean;
+}
+
+let _config: ActionsConfig = {
+    contracts: {
+        aTokensPerSymbol: {},
+        aTokensPerAddress: {},
+    },
+    ethereumAddress: ETH_ADDRESS,
+    skipIntegrityCheck: false
+};
+
+export const setConfig = (config: ActionsConfig) => {
+    _config = config;
+}
+
+export const getConfig = () => {
+    return _config;
+}
 
 export const transfer = async (reserveSymbol: string, amount: string, user: string) => {
-    const { tokens } = await loadFixture(getEnvironment);
+    const { tokens } = await getEnvironment();
 
     const reserve = await getReserveAddressFromSymbol(reserveSymbol);
 
@@ -23,20 +57,36 @@ export const transfer = async (reserveSymbol: string, amount: string, user: stri
     }
 
     const tokenContract = tokens[reserveSymbol];
+    if (!tokenContract) {
+        throw `Token contract not found for ${reserveSymbol}`;
+    }
 
     const whaleAddress = getWhaleAddressForToken(reserveSymbol);
+
     const whale = await hre.ethers
         .getImpersonatedSigner(whaleAddress)
+    // Fund whale to pay for gas
     await setBalance(whaleAddress, hre.ethers.parseEther("1"));
 
-    const tokensToTransfer = convertToCurrencyDecimals(reserveSymbol, amount);
+    const whaleTokenBalance = await tokenContract.balanceOf(whaleAddress);
 
+    const tokensToTransfer = convertToCurrencyDecimals(reserveSymbol, amount);
+    const tokenDecimals = await tokenContract.decimals();
+
+    console.log(`[Action: Transfer] Whale ${whaleAddress} with balance ${hre.ethers.formatUnits(whaleTokenBalance, tokenDecimals)} transfers ${amount} ${reserveSymbol} to ${user}`);
     await tokenContract.connect(whale).transfer(user, tokensToTransfer);
+
+    const userBalance = await tokenContract.balanceOf(user);
+    console.log(`[Action: Transfer] User ${user} balance after transfer ${hre.ethers.formatUnits(userBalance, tokenDecimals)}`);
 };
 
 export const approve = async (reserveSymbol: string, userAddress: string) => {
-    const { tokens } = await loadFixture(getEnvironment);
-    const { lendingPoolCore } = await loadFixture(setupContracts);
+    const { tokens } = await getEnvironment();
+    const { lendingPoolCore } = _config.contracts;
+
+    if (!lendingPoolCore) {
+        throw 'Lending pool core is not set in configuration';
+    }
 
     const reserve = await getReserveAddressFromSymbol(reserveSymbol);
 
@@ -47,12 +97,19 @@ export const approve = async (reserveSymbol: string, userAddress: string) => {
     const tokenContract = tokens[reserveSymbol];
 
     const user = await hre.ethers.getSigner(userAddress);
+    const userBalance = await tokenContract.balanceOf(userAddress);
+    const tokenDecimals = await tokenContract.decimals();
+
     const lendingPoolCoreAddress = await lendingPoolCore.getAddress();
+
+    console.log(`[Action: Approve] User ${userAddress} with balance ${hre.ethers.formatUnits(userBalance, tokenDecimals)} ${reserveSymbol} approves spending to core ${lendingPoolCoreAddress}`);
     await tokenContract.connect(user)
         .approve(
             lendingPoolCoreAddress,
             '100000000000000000000000000000'
         );
+    const allowance = await tokenContract.allowance(userAddress, lendingPoolCoreAddress);
+    console.log(`[Action: Approve] Contract ${lendingPoolCoreAddress} allowance is now ${hre.ethers.formatUnits(allowance, tokenDecimals)}`);
 };
 
 export const deposit = async (
@@ -63,7 +120,22 @@ export const deposit = async (
     expectedResult: string,
     revertMessage?: string
 ) => {
-    const { lendingPool, lendingPoolCore } = await loadFixture(setupContracts);
+    const { lendingPool, lendingPoolCore } = _config.contracts;
+    const { tokens } = await getEnvironment();
+
+    const tokenContract = tokens[reserveSymbol];
+
+    if (!tokenContract) {
+        throw `Token contract not found for ${reserveSymbol}`;
+    }
+
+    if (!lendingPool) {
+        throw 'Lending pool is not set in configuration';
+    }
+
+    if (!lendingPoolCore) {
+        throw 'Lending pool core is not set in configuration';
+    }
 
     const reserve = await getReserveAddressFromSymbol(reserveSymbol);
 
@@ -77,10 +149,6 @@ export const deposit = async (
         userAddress
     );
 
-    // TODO: I'm not sure if I'm using this correctly.
-    //  If I wont load environment, tokens wont have balances and allowances
-    await loadFixture(getEnvironment);
-
     let txOptions = {
         value: 0n,
     };
@@ -93,36 +161,60 @@ export const deposit = async (
     }
 
     const user = await hre.ethers.getSigner(userAddress);
+    const balance = await tokenContract.balanceOf(userAddress);
+    const decimals = await tokenContract.decimals();
 
+    console.log(`[Action: Deposit] User ${userAddress} with balance of ${hre.ethers.formatUnits(balance, decimals)} ${reserveSymbol} deposits ${amount} ${reserveSymbol} to the pool`);
     if (expectedResult === 'success') {
+        const { tokens } = await getEnvironment();
+        const dai = tokens['DAI'];
+        if (!dai) {
+            throw 'DAI token not found in environment';
+        }
+
+        console.log('[Before] User balance', await dai.balanceOf(userAddress));
+        // TODO: magically passes if user has no balance???
         const txResult = await lendingPool
             .connect(user)
-            .deposit(reserve, amountToDeposit, txOptions);
+            .deposit(reserve, amountToDeposit, 0, txOptions);
 
-        // const {
-        //     reserveData: reserveDataAfter,
-        //     userData: userDataAfter,
-        //     timestamp,
-        // } = await getContractsData(reserve, userAddress);
+        console.log('[After] User balance', await dai.balanceOf(userAddress));
 
-        // const { txCost, txTimestamp} = await getTxCostAndTimestamp(txResult);
+        const {
+            reserveData: reserveDataAfter,
+            userData: userDataAfter,
+            timestamp,
+        } = await getContractsData(reserve, userAddress);
 
-        // const expectedReserveData = calcExpectedReserveDataAfterDeposit(
-        //     amountToDeposit,
-        //     reserveDataBefore,
-        //     txTimestamp
-        // );
-        //
-        // const expectedUserReserveData = calcExpectedUserDataAfterDeposit(
-        //     amountToDeposit,
-        //     reserveDataBefore,
-        //     expectedReserveData,
-        //     userDataBefore,
-        //     txTimestamp,
-        //     timestamp,
-        //     txCost
-        // );
-        //
+        const { txCost, txTimestamp} = await getTxCostAndTimestamp(txResult);
+
+        const expectedReserveData = calcExpectedReserveDataAfterDeposit(
+            amountToDeposit,
+            reserveDataBefore,
+            txTimestamp
+        );
+
+        const expectedUserReserveData = calcExpectedUserDataAfterDeposit(
+            amountToDeposit,
+            reserveDataBefore,
+            expectedReserveData,
+            userDataBefore,
+            txTimestamp,
+            timestamp,
+            txCost
+        );
+
+        console.log({
+            reserveDataAfter,
+        })
+
+        console.log({
+            expectedReserveData,
+        })
+
+        expect(reserveDataAfter)
+            .to.contain(expectedReserveData);
+
         // expectEqual(reserveDataAfter, expectedReserveData);
         // expectEqual(userDataAfter, expectedUserReserveData);
         //
@@ -163,7 +255,15 @@ const getTxCostAndTimestamp = async (tx: ContractTransactionResponse) => {
 };
 
 const getContractsData = async (reserve: string, user: string) => {
-    const { lendingPool, lendingPoolCore } = await loadFixture(setupContracts);
+    const { lendingPool, lendingPoolCore } = _config.contracts;
+
+    if (!lendingPool) {
+        throw 'Lending pool is not set in configuration';
+    }
+
+    if (!lendingPoolCore) {
+        throw 'Lending pool core is not set in configuration';
+    }
 
     const [reserveData, userData, timestamp] = await Promise.all([
         getReserveData(lendingPool, reserve),
@@ -181,4 +281,15 @@ const getContractsData = async (reserve: string, user: string) => {
         userData,
         timestamp: BigInt(timestamp),
     };
+};
+
+const expectEqual = (
+    actual: UserReserveData | ReserveData,
+    expected: UserReserveData | ReserveData
+) => {
+    // TODO: add integrity check?
+    // if (!configuration.skipIntegrityCheck) {
+    //     expect(actual).to.be.almostEqualOrEqual(expected);
+    expect(actual).to.be.deep.equal(expected);
+    // }
 };

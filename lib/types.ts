@@ -1,3 +1,5 @@
+import BigNumber from "bignumber.js";
+
 export interface ReserveData {
     address: string
     symbol: string
@@ -9,7 +11,7 @@ export interface ReserveData {
     // averageStableBorrowRate: bigint
     variableBorrowRate: bigint
     // stableBorrowRate: bigint
-    utilizationRate: bigint
+    utilizationRate: BigNumber
     liquidityIndex: bigint
     variableBorrowIndex: bigint
     aTokenAddress: string

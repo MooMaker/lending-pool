@@ -4,8 +4,9 @@ import deployConfigJSON from '../../deploy.config.json';
 import {DeployConfig} from "../deploy/types";
 import {ReserveData, UserReserveData} from "../types";
 import {LendingPool, LendingPoolCore} from "../../typechain-types";
-import {loadFixture} from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import {setupContracts} from "./scenarios/common";
+import {getEnvironment} from "./scenarios/common";
+import BigNumber from "bignumber.js";
+import {getConfig} from "./scenarios/actions";
 
 const deployConfig = deployConfigJSON as DeployConfig;
 export const getReserveAddressFromSymbol = async (symbol: string) => {
@@ -88,10 +89,14 @@ export const getReserveData = async (
     let symbol = 'ETH';
     let decimals = BigInt(18);
     if (!isEthReserve) {
-        const token = await hre.ethers.getContractAt(
-            "ERC20",
-            reserve
-        );
+        const { tokensPerAddress } = await getEnvironment();
+
+        const token = tokensPerAddress.get(reserve);
+
+        if (!token) {
+            throw `Could not find token for reserve ${reserve}`;
+        }
+
         symbol = await token.symbol();
         decimals = await token.decimals();
     }
@@ -105,7 +110,7 @@ export const getReserveData = async (
         variableBorrowRate: data.variableBorrowRate,
         // stableBorrowRate: data.stableBorrowRate,
         // averageStableBorrowRate: data.averageStableBorrowRate,
-        utilizationRate: data.utilizationRate,
+        utilizationRate: new BigNumber(data.utilizationRate.toString()),
         liquidityIndex: data.liquidityIndex,
         variableBorrowIndex: data.variableBorrowIndex,
         lastUpdateTimestamp: data.lastUpdateTimestamp,
@@ -141,10 +146,13 @@ export const getUserData = async (
     if (reserve === ETH) {
         walletBalance = await hre.ethers.provider.getBalance(user)
     } else {
-        const reserveInstance = await hre.ethers.getContractAt(
-            'ERC20',
-            reserve
-        );
+        const { tokensPerAddress } = await getEnvironment();
+
+        const reserveInstance = tokensPerAddress.get(reserve);
+        if (!reserveInstance) {
+            throw `Could not find token for reserve ${reserve}`;
+        }
+
         walletBalance = await reserveInstance.balanceOf(user);
     }
 
@@ -173,13 +181,16 @@ export const getUserData = async (
 const getATokenUserData = async (
     reserve: string,
     user: string,
-    coreInstance: LendingPoolCore
+    coreInstance: LendingPoolCore,
 ) => {
     const aTokenAddress: string = await coreInstance.getReserveATokenAddress(reserve);
 
-    const { aTokensPerAddress } = await loadFixture(setupContracts);
-
+    const { aTokensPerAddress } = getConfig().contracts;
     const aTokenInstance = aTokensPerAddress[aTokenAddress];
+
+    if (!aTokenInstance) {
+        throw `Could not find aToken instance for ${aTokenAddress}`;
+    }
 
     const [
         userIndex,

@@ -2,8 +2,7 @@ import hre from "hardhat";
 import {
     AddressesProvider,
     AToken,
-    DefaultReserveInterestRateStrategy,
-    IERC20,
+    DefaultReserveInterestRateStrategy, ERC20,
     LendingPool,
     LendingPoolCore
 } from "../../../typechain-types";
@@ -14,16 +13,26 @@ import {ATokenInfo} from "../../../scripts/2-token-actions/200_deploy_reserve_at
 import {STRATEGY_VOLATILE_ONE} from "../../../scripts/2-token-actions/201_deploy_interest_rate_strategies";
 
 export async function getEnvironment(): Promise<{
-    tokens: { [key: string]: IERC20 }
+    tokens: { [key: string]: ERC20 },
+    tokensPerAddress: Map<string, ERC20>
 }> {
     const tokenList = getTokenListForNetwork(hre.network);
 
-    const tokens: { [key: string]: IERC20 } = {};
-    tokens['USDC'] = await hre.ethers.getContractAt('IERC20', tokenList.USDC);
-    tokens['DAI'] = await hre.ethers.getContractAt('IERC20', tokenList.DAI);
+    const tokens: { [key: string]: ERC20 } = {};
+    tokens['USDC'] = await hre.ethers.getContractAt('ERC20', tokenList.USDC);
+    tokens['DAI'] = await hre.ethers.getContractAt('ERC20', tokenList.DAI);
+
+    const tokensPerAddress = new Map<string, ERC20>();
+
+
+    for (let key of Object.keys(tokens)) {
+        const tokenContract = tokens[key];
+        tokensPerAddress.set(await tokenContract.getAddress(), tokenContract);
+    }
 
     return {
-        tokens
+        tokens,
+        tokensPerAddress
     };
 }
 

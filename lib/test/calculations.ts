@@ -16,7 +16,9 @@
 
 // export const strToBN = (amount: string): BigNumber => new BigNumber(amount);
 
-import {ReserveData} from "../types";
+import {ReserveData, UserReserveData} from "../types";
+import BigNumber from "bignumber.js";
+import {rayDiv} from "../utils/ray-math";
 
 interface Configuration {
   reservesParams: IReservesParams;
@@ -26,85 +28,85 @@ interface Configuration {
 
 export const configuration: Configuration = <Configuration>{};
 
-// export const calcExpectedUserDataAfterDeposit = (
-//   amountDeposited: string,
-//   reserveDataBeforeAction: ReserveData,
-//   reserveDataAfterAction: ReserveData,
-//   userDataBeforeAction: UserReserveData,
-//   txTimestamp: BigNumber,
-//   currentTimestamp: BigNumber,
-//   txCost: BigNumber
-// ): UserReserveData => {
-//   const expectedUserData = <UserReserveData>{};
-//
-//   expectedUserData.currentBorrowBalance = calcExpectedCompoundedBorrowBalance(
-//     userDataBeforeAction,
-//     reserveDataBeforeAction,
-//     txTimestamp
-//   );
-//   expectedUserData.principalBorrowBalance = userDataBeforeAction.principalBorrowBalance;
-//   expectedUserData.borrowRateMode = userDataBeforeAction.borrowRateMode;
-//
-//   if (userDataBeforeAction.borrowRateMode === RATEMODE_NONE) {
-//     expectedUserData.borrowRate = new BigNumber('0');
-//   } else {
-//     expectedUserData.borrowRate = userDataBeforeAction.borrowRate;
-//   }
-//
-//   expectedUserData.liquidityRate = reserveDataAfterAction.liquidityRate;
-//
-//   expectedUserData.originationFee = userDataBeforeAction.originationFee;
-//
-//   expectedUserData.currentATokenBalance = userDataBeforeAction.currentATokenBalance.plus(
-//     amountDeposited
-//   );
-//
-//   if (userDataBeforeAction.currentATokenBalance.eq(0)) {
-//     expectedUserData.usageAsCollateralEnabled = true;
-//   } else {
-//     //if user is redeeming everything, usageAsCollateralEnabled must be false
-//     if (expectedUserData.currentATokenBalance.eq(0)) {
-//       expectedUserData.usageAsCollateralEnabled = false;
-//     } else {
-//       expectedUserData.usageAsCollateralEnabled = userDataBeforeAction.usageAsCollateralEnabled;
-//     }
-//   }
-//
-//   expectedUserData.variableBorrowIndex = userDataBeforeAction.variableBorrowIndex;
-//
-//   if (reserveDataBeforeAction.address === configuration.ethereumAddress) {
-//     expectedUserData.walletBalance = userDataBeforeAction.walletBalance
-//       .minus(txCost)
-//       .minus(amountDeposited);
-//   } else {
-//     expectedUserData.walletBalance = userDataBeforeAction.walletBalance.minus(amountDeposited);
-//   }
-//
-//   expectedUserData.principalATokenBalance = expectedUserData.currentATokenBalance = calcExpectedATokenBalance(
-//     reserveDataBeforeAction,
-//     userDataBeforeAction,
-//     txTimestamp
-//   ).plus(amountDeposited);
-//
-//   expectedUserData.redirectedBalance = userDataBeforeAction.redirectedBalance;
-//   expectedUserData.interestRedirectionAddress = userDataBeforeAction.interestRedirectionAddress;
-//   expectedUserData.currentATokenUserIndex = calcExpectedATokenUserIndex(
-//     reserveDataBeforeAction,
-//     expectedUserData.currentATokenBalance,
-//     expectedUserData.redirectedBalance,
-//     txTimestamp
-//   );
-//
-//   expectedUserData.redirectionAddressRedirectedBalance = calcExpectedRedirectedBalance(
-//     userDataBeforeAction,
-//     expectedUserData,
-//     userDataBeforeAction.redirectionAddressRedirectedBalance,
-//     new BigNumber(amountDeposited),
-//     new BigNumber(0)
-//   );
-//
-//   return expectedUserData;
-// };
+export const calcExpectedUserDataAfterDeposit = (
+  amountDeposited: bigint,
+  reserveDataBeforeAction: ReserveData,
+  reserveDataAfterAction: ReserveData,
+  userDataBeforeAction: UserReserveData,
+  txTimestamp: number,
+  currentTimestamp: bigint,
+  txCost: bigint
+): UserReserveData => {
+  const expectedUserData = <UserReserveData>{};
+
+  // expectedUserData.currentBorrowBalance = calcExpectedCompoundedBorrowBalance(
+  //   userDataBeforeAction,
+  //   reserveDataBeforeAction,
+  //   txTimestamp
+  // );
+  // expectedUserData.principalBorrowBalance = userDataBeforeAction.principalBorrowBalance;
+  // expectedUserData.borrowRateMode = userDataBeforeAction.borrowRateMode;
+  //
+  // if (userDataBeforeAction.borrowRateMode === RATEMODE_NONE) {
+  //   expectedUserData.borrowRate = new BigNumber('0');
+  // } else {
+  //   expectedUserData.borrowRate = userDataBeforeAction.borrowRate;
+  // }
+  //
+  // expectedUserData.liquidityRate = reserveDataAfterAction.liquidityRate;
+  //
+  // expectedUserData.originationFee = userDataBeforeAction.originationFee;
+  //
+  // expectedUserData.currentATokenBalance = userDataBeforeAction.currentATokenBalance.plus(
+  //   amountDeposited
+  // );
+  //
+  // if (userDataBeforeAction.currentATokenBalance.eq(0)) {
+  //   expectedUserData.usageAsCollateralEnabled = true;
+  // } else {
+  //   //if user is redeeming everything, usageAsCollateralEnabled must be false
+  //   if (expectedUserData.currentATokenBalance.eq(0)) {
+  //     expectedUserData.usageAsCollateralEnabled = false;
+  //   } else {
+  //     expectedUserData.usageAsCollateralEnabled = userDataBeforeAction.usageAsCollateralEnabled;
+  //   }
+  // }
+  //
+  // expectedUserData.variableBorrowIndex = userDataBeforeAction.variableBorrowIndex;
+  //
+  // if (reserveDataBeforeAction.address === configuration.ethereumAddress) {
+  //   expectedUserData.walletBalance = userDataBeforeAction.walletBalance
+  //     .minus(txCost)
+  //     .minus(amountDeposited);
+  // } else {
+  //   expectedUserData.walletBalance = userDataBeforeAction.walletBalance.minus(amountDeposited);
+  // }
+  //
+  // expectedUserData.principalATokenBalance = expectedUserData.currentATokenBalance = calcExpectedATokenBalance(
+  //   reserveDataBeforeAction,
+  //   userDataBeforeAction,
+  //   txTimestamp
+  // ).plus(amountDeposited);
+  //
+  // expectedUserData.redirectedBalance = userDataBeforeAction.redirectedBalance;
+  // expectedUserData.interestRedirectionAddress = userDataBeforeAction.interestRedirectionAddress;
+  // expectedUserData.currentATokenUserIndex = calcExpectedATokenUserIndex(
+  //   reserveDataBeforeAction,
+  //   expectedUserData.currentATokenBalance,
+  //   expectedUserData.redirectedBalance,
+  //   txTimestamp
+  // );
+  //
+  // expectedUserData.redirectionAddressRedirectedBalance = calcExpectedRedirectedBalance(
+  //   userDataBeforeAction,
+  //   expectedUserData,
+  //   userDataBeforeAction.redirectionAddressRedirectedBalance,
+  //   new BigNumber(amountDeposited),
+  //   new BigNumber(0)
+  // );
+
+  return expectedUserData;
+};
 
 export const calcExpectedReserveDataAfterDeposit = (
   amountDeposited: bigint,
@@ -126,31 +128,31 @@ export const calcExpectedReserveDataAfterDeposit = (
   // expectedReserveData.averageStableBorrowRate = reserveDataBeforeAction.averageStableBorrowRate;
 
   expectedReserveData.utilizationRate = calcExpectedUtilizationRate(
-    expectedReserveData.totalBorrowsStable,
+    // expectedReserveData.totalBorrowsStable,
     expectedReserveData.totalBorrowsVariable,
     expectedReserveData.totalLiquidity
   );
-  const rates = calcExpectedInterestRates(
-    reserveDataBeforeAction.symbol,
-    reserveDataBeforeAction.marketStableRate,
-    expectedReserveData.utilizationRate,
-    expectedReserveData.totalBorrowsStable,
-    expectedReserveData.totalBorrowsVariable,
-    expectedReserveData.averageStableBorrowRate
-  );
-  expectedReserveData.liquidityRate = rates[0];
-  expectedReserveData.stableBorrowRate = rates[1];
-  expectedReserveData.variableBorrowRate = rates[2];
-
-  expectedReserveData.averageStableBorrowRate = reserveDataBeforeAction.averageStableBorrowRate;
-  expectedReserveData.liquidityIndex = calcExpectedLiquidityIndex(
-    reserveDataBeforeAction,
-    txTimestamp
-  );
-  expectedReserveData.variableBorrowIndex = calcExpectedVariableBorrowIndex(
-    reserveDataBeforeAction,
-    txTimestamp
-  );
+  // const rates = calcExpectedInterestRates(
+  //   reserveDataBeforeAction.symbol,
+  //   reserveDataBeforeAction.marketStableRate,
+  //   expectedReserveData.utilizationRate,
+  //   expectedReserveData.totalBorrowsStable,
+  //   expectedReserveData.totalBorrowsVariable,
+  //   expectedReserveData.averageStableBorrowRate
+  // );
+  // expectedReserveData.liquidityRate = rates[0];
+  // expectedReserveData.stableBorrowRate = rates[1];
+  // expectedReserveData.variableBorrowRate = rates[2];
+  //
+  // expectedReserveData.averageStableBorrowRate = reserveDataBeforeAction.averageStableBorrowRate;
+  // expectedReserveData.liquidityIndex = calcExpectedLiquidityIndex(
+  //   reserveDataBeforeAction,
+  //   txTimestamp
+  // );
+  // expectedReserveData.variableBorrowIndex = calcExpectedVariableBorrowIndex(
+  //   reserveDataBeforeAction,
+  //   txTimestamp
+  // );
 
   return expectedReserveData;
 };
@@ -158,12 +160,10 @@ export const calcExpectedReserveDataAfterDeposit = (
 const calcExpectedUtilizationRate = (
     totalBorrowsVariable: bigint,
     totalLiquidity: bigint
-): bigint => {
+): BigNumber => {
   if (totalBorrowsVariable == 0n) {
-    return 0n;
+    return new BigNumber(0);
   }
 
-  const utilization = totalBorrowsStable.plus(totalBorrowsVariable).rayDiv(totalLiquidity);
-
-  return utilization;
+  return rayDiv(totalBorrowsVariable.toString(), totalLiquidity.toString());
 };
