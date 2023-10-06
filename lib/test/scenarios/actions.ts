@@ -1,4 +1,5 @@
 import hre from 'hardhat';
+import chai from 'chai';
 import { setBalance, time } from "@nomicfoundation/hardhat-network-helpers";
 
 import {
@@ -14,6 +15,7 @@ import {ReserveData, UserReserveData} from "../../types";
 import {expect} from "chai";
 import {AToken, LendingPool, LendingPoolCore} from "../../../typechain-types";
 import {getEnvironment} from "./common";
+import BigNumber from "bignumber.js";
 
 type ActionsConfig = {
     contracts: {
@@ -170,13 +172,9 @@ export const deposit = async (
             throw 'DAI token not found in environment';
         }
 
-        console.log('[Before] User balance', await dai.balanceOf(userAddress));
-        // TODO: magically passes if user has no balance???
         const txResult = await lendingPool
             .connect(user)
             .deposit(reserve, amountToDeposit, 0, txOptions);
-
-        console.log('[After] User balance', await dai.balanceOf(userAddress));
 
         const {
             reserveData: reserveDataAfter,
@@ -192,28 +190,28 @@ export const deposit = async (
             txTimestamp
         );
 
-        const expectedUserReserveData = calcExpectedUserDataAfterDeposit(
-            amountToDeposit,
-            reserveDataBefore,
-            expectedReserveData,
-            userDataBefore,
-            txTimestamp,
-            timestamp,
-            txCost
-        );
+        // const expectedUserReserveData = calcExpectedUserDataAfterDeposit(
+        //     amountToDeposit,
+        //     reserveDataBefore,
+        //     expectedReserveData,
+        //     userDataBefore,
+        //     txTimestamp,
+        //     timestamp,
+        //     txCost
+        // );
 
-        console.log({
-            reserveDataAfter,
-        })
+        // console.dir({
+        //     reserveDataAfter
+        // }, { depth: null })
+        //
+        // console.dir({
+        //     expectedReserveData
+        // }, { depth: null })
+        //
+        // expect(reserveDataAfter)
+        //     .to.deep.contain(expectedReserveData);
 
-        console.log({
-            expectedReserveData,
-        })
-
-        expect(reserveDataAfter)
-            .to.contain(expectedReserveData);
-
-        // expectEqual(reserveDataAfter, expectedReserveData);
+        expectEqual(reserveDataAfter, expectedReserveData);
         // expectEqual(userDataAfter, expectedUserReserveData);
         //
         // truffleAssert.eventEmitted(txResult, 'Deposit', (ev: any) => {
@@ -243,7 +241,7 @@ const getTxCostAndTimestamp = async (tx: ContractTransactionResponse) => {
             throw `Tx ${tx.hash} not in block`;
         }
 
-        txTimestamp = block.timestamp;
+        txTimestamp = BigInt(block.timestamp);
         txCost = receipt.cumulativeGasUsed * receipt.gasPrice;
     } else {
         throw `Tx ${tx.hash} has no receipt`;
@@ -285,9 +283,68 @@ const expectEqual = (
     actual: UserReserveData | ReserveData,
     expected: UserReserveData | ReserveData
 ) => {
-    // TODO: add integrity check?
-    // if (!configuration.skipIntegrityCheck) {
-    //     expect(actual).to.be.almostEqualOrEqual(expected);
-    expect(actual).to.be.deep.equal(expected);
-    // }
+    expect(actual).to.be.almostEqualOrEqual(expected);
 };
+
+const almostEqualOrEqual = function(
+    this: any,
+    expected: ReserveData | UserReserveData,
+    actual: ReserveData | UserReserveData
+) {
+    const keys = Object.keys(actual);
+    keys.forEach(key => {
+        if (
+            key === 'lastUpdateTimestamp' ||
+            key === 'marketStableRate' ||
+            key === 'symbol' ||
+            key === 'aTokenAddress' ||
+            key === 'initialATokenExchangeRate' ||
+            key === 'decimals'
+        ) {
+            //skipping consistency check on accessory data
+            return;
+        }
+
+        this.assert(actual[key] != undefined, `Property ${key} is undefined in the actual data`);
+        expect(expected[key] != undefined, `Property ${key} is undefined in the expected data`);
+
+        if (actual[key] instanceof BigNumber) {
+            const actualValue = (<BigNumber>actual[key]).decimalPlaces(0, BigNumber.ROUND_DOWN);
+            const expectedValue = (<BigNumber>expected[key]).decimalPlaces(0, BigNumber.ROUND_DOWN);
+
+            this.assert(
+                actualValue.eq(expectedValue) ||
+                actualValue.plus(1).eq(expectedValue) ||
+                actualValue.eq(expectedValue.plus(1)) ||
+                actualValue.plus(2).eq(expectedValue) ||
+                actualValue.eq(expectedValue.plus(2)),
+                `expected #{act} to be almost equal or equal #{exp} for property ${key}`,
+                `expected #{act} to be almost equal or equal #{exp} for property ${key}`,
+                expectedValue.toFixed(0),
+                actualValue.toFixed(0)
+            );
+        } else {
+            this.assert(
+                actual[key] !== null &&
+                expected[key] !== null &&
+                actual[key].toString() === expected[key].toString(),
+                `expected #{act} to be equal #{exp} for property ${key}`,
+                `expected #{act} to be equal #{exp} for property ${key}`,
+                expected[key],
+                actual[key]
+            );
+        }
+    });
+};
+
+chai.use(function(chai: any, utils: any) {
+    chai.Assertion.overwriteMethod('almostEqualOrEqual', function(original: any) {
+        return function(this: any, expected: ReserveData | UserReserveData) {
+            const actual = (expected as ReserveData)
+                ? <ReserveData>this._obj
+                : <UserReserveData>this._obj;
+
+            almostEqualOrEqual.apply(this, [expected, actual]);
+        };
+    });
+});

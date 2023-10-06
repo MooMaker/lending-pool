@@ -2,21 +2,7 @@ import { DeployFunction } from 'hardhat-deploy/types';
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import {getTokenListForNetwork} from "../../lib/utils/token";
 import {writeToJSON} from "../../lib/test/utils";
-
-type InterestRateStrategy = {
-    optimalUsage: number;
-    baseVariableBorrowRate: number;
-    variableRateSlope1: number;
-    variableRateSlope2: number;
-}
-
-export const STRATEGY_VOLATILE_ONE: InterestRateStrategy = {
-    optimalUsage: 45,
-    baseVariableBorrowRate: 0,
-    // TODO: convert properly to RAY
-    variableRateSlope1: 4, // 4%
-    variableRateSlope2: 300, // 300%
-}
+import {STRATEGY_VOLATILE_ONE} from "../../lib/constants/reserves";
 
 const setupFunction: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     const { deployer } = await hre.getNamedAccounts();
@@ -26,6 +12,7 @@ const setupFunction: DeployFunction = async function (hre: HardhatRuntimeEnviron
 
     const strategyInfoList = [
         {
+            // TODO: refactor to use SYMBOLS constant
             tokenSymbol: 'ETH',
             tokenAddress: tokenList.get('ETH'),
             strategy: STRATEGY_VOLATILE_ONE,
@@ -54,9 +41,9 @@ const setupFunction: DeployFunction = async function (hre: HardhatRuntimeEnviron
             args: [
                 tokenAddress,
                 addressesProvider.address,
-                strategy.baseVariableBorrowRate,
-                strategy.variableRateSlope1,
-                strategy.variableRateSlope2,
+                `0x${strategy.baseVariableBorrowRate.toString(16)}`,
+                `0x${strategy.variableRateSlope1.toString(16)}`,
+                `0x${strategy.variableRateSlope2.toString(16)}`,
             ]
         });
 

@@ -9,7 +9,7 @@ import {
 import {getTokenListForNetwork} from "../../utils/token";
 import {TOKEN_DECIMALS} from "../../constants/tokens";
 import {ATokenInfo} from "../../../scripts/2-token-actions/200_deploy_reserve_atokens";
-import {STRATEGY_VOLATILE_ONE} from "../../../scripts/2-token-actions/201_deploy_interest_rate_strategies";
+import {STRATEGY_VOLATILE_ONE} from "../../constants/reserves";
 
 export type TokenSymbol = string;
 export type TokenAddress = string;
@@ -190,9 +190,10 @@ export async function setupContracts(): Promise<{
             const interestRateStrategy = await interestRateStrategyFactory.deploy(
                 tokenAddress,
                 addressesProvider,
-                strategy.baseVariableBorrowRate,
-                strategy.variableRateSlope1,
-                strategy.variableRateSlope2,
+                // TODO: consider reworking with big number
+                `0x${strategy.baseVariableBorrowRate.toString(16)}`,
+                `0x${strategy.variableRateSlope1.toString(16)}`,
+                `0x${strategy.variableRateSlope2.toString(16)}`,
             );
 
             interestRateStrategies.set(name, interestRateStrategy);

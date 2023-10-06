@@ -7,6 +7,7 @@ import {LendingPool, LendingPoolCore} from "../../typechain-types";
 import {getEnvironment} from "./scenarios/common";
 import BigNumber from "bignumber.js";
 import {getConfig} from "./scenarios/actions";
+import {BigNumberZD} from "../utils/bignumber";
 
 const deployConfig = deployConfigJSON as DeployConfig;
 export const getReserveAddressFromSymbol = async (symbol: string) => {
@@ -78,13 +79,6 @@ export const getReserveData = async (
 ): Promise<ReserveData> => {
     const data: any = await poolInstance.getReserveData(reserve);
 
-    // const rateOracle: LendingRateOracleInstance = await getTruffleContractInstance(
-    //     artifacts,
-    //     ContractId.LendingRateOracle
-    // );
-    //
-    // const rate = await rateOracle.getMarketBorrowRate(reserve);
-    //
     const isEthReserve = reserve === ETH_ADDRESS;
     let symbol = 'ETH';
     let decimals = BigInt(18);
@@ -101,24 +95,21 @@ export const getReserveData = async (
         decimals = await token.decimals();
     }
 
+    // TODO: probably all of them must be instances of BigNumberZD
     return {
         totalLiquidity: data.totalLiquidity,
         availableLiquidity: data.availableLiquidity,
-        // totalBorrowsStable: data.totalBorrowsStable,
         totalBorrowsVariable: data.totalBorrowsVariable,
-        liquidityRate: data.liquidityRate,
-        variableBorrowRate: data.variableBorrowRate,
-        // stableBorrowRate: data.stableBorrowRate,
-        // averageStableBorrowRate: data.averageStableBorrowRate,
+        liquidityRate: new BigNumberZD(data.liquidityRate.toString()),
+        variableBorrowRate: new BigNumber(data.variableBorrowRate.toString()),
         utilizationRate: new BigNumber(data.utilizationRate.toString()),
-        liquidityIndex: data.liquidityIndex,
-        variableBorrowIndex: data.variableBorrowIndex,
+        liquidityIndex: new BigNumber(data.liquidityIndex),
+        variableBorrowIndex: new BigNumber(data.variableBorrowIndex),
         lastUpdateTimestamp: data.lastUpdateTimestamp,
         address: reserve,
         aTokenAddress: data.aTokenAddress,
         symbol,
         decimals,
-        // marketStableRate: rate,
     };
 };
 

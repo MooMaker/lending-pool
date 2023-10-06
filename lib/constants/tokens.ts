@@ -1,6 +1,12 @@
 // Internal system representation of ETH token
 export const ETH = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
 
+export const SYMBOLS = {
+    ETH: 'ETH',
+    USDC: 'USDC',
+    DAI: 'DAI'
+}
+
 export const TOKEN_DECIMALS: Map<string, number> = new Map([
     ['ETH', 18],
     ['USDC', 6],

@@ -3,10 +3,12 @@ import {Scenario} from "./types";
 
 import DEPOSIT_SCENARIO from './scenarios/deposit.json';
 import {executeStory} from "../../lib/test/scenarios/scenario-engine";
-import {setConfig as setActionsConfig} from "../../lib/test/scenarios/actions";
+import { setConfig as setActionsConfig } from "../../lib/test/scenarios/actions";
+import { setConfig as setCalcConfig } from "../../lib/test/calculations";
 import {loadFixture} from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import {getEnvironment, setupContracts} from "../../lib/test/scenarios/common";
-import {ETH} from "../../lib/constants/tokens";
+import {setupContracts} from "../../lib/test/scenarios/common";
+import {ETH, SYMBOLS} from "../../lib/constants/tokens";
+import {STRATEGY_VOLATILE_ONE} from "../../lib/constants/reserves";
 
 const scenarioSpec = [
     DEPOSIT_SCENARIO as Scenario
@@ -27,6 +29,7 @@ describe('Scenario tests', () => {
             aTokensPerAddress
         } = await loadFixture(setupContracts);
 
+        // Prepare config for actions module
         setActionsConfig({
             contracts: {
                 lendingPool,
@@ -37,6 +40,16 @@ describe('Scenario tests', () => {
             ethereumAddress: ETH,
             skipIntegrityCheck: false
         })
+
+        // Prepare config for calculations module
+        setCalcConfig({
+            reservesParams: new Map([
+                [SYMBOLS.ETH, STRATEGY_VOLATILE_ONE],
+                [SYMBOLS.DAI, STRATEGY_VOLATILE_ONE],
+                [SYMBOLS.USDC, STRATEGY_VOLATILE_ONE],
+            ]),
+            ethereumAddress: ETH
+        });
     });
 
     scenarioSpec.forEach((scenario) => {

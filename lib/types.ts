@@ -9,16 +9,16 @@ export interface ReserveData {
     // totalBorrowsStable: bigint
     totalBorrowsVariable: bigint
     // averageStableBorrowRate: bigint
-    variableBorrowRate: bigint
+    variableBorrowRate: BigNumber
     // stableBorrowRate: bigint
     utilizationRate: BigNumber
-    liquidityIndex: bigint
-    variableBorrowIndex: bigint
+    liquidityIndex: BigNumber
+    variableBorrowIndex: BigNumber
     aTokenAddress: string
     // marketStableRate: bigint
     lastUpdateTimestamp: bigint
-    liquidityRate: bigint
-    [key: string]: bigint | string
+    liquidityRate: BigNumber
+    [key: string]: bigint | string | BigNumber
 }
 
 export interface UserReserveData {

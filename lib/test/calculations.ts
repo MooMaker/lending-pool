@@ -18,15 +18,24 @@
 
 import {ReserveData, UserReserveData} from "../types";
 import BigNumber from "bignumber.js";
-import {rayDiv} from "../utils/ray-math";
+import {RAY, rayDiv, rayMul, rayPow, wadToRay} from "../utils/ray-math";
+import {EXCESS_UTILIZATION_RATE, InterestRateStrategy, OPTIMAL_UTILIZATION_RATE} from "../constants/reserves";
+import {SECONDS_PER_YEAR} from "../constants/common";
 
-interface Configuration {
-  reservesParams: IReservesParams;
-  web3: Web3;
+interface CalcConfig {
+  reservesParams: Map<string, InterestRateStrategy>;
   ethereumAddress: string;
 }
 
-export const configuration: Configuration = <Configuration>{};
+let _config= <CalcConfig>{};
+
+export const setConfig = (config: CalcConfig) => {
+  _config = config;
+}
+
+export const getConfig = () => {
+  return _config;
+}
 
 export const calcExpectedUserDataAfterDeposit = (
   amountDeposited: bigint,
@@ -108,10 +117,59 @@ export const calcExpectedUserDataAfterDeposit = (
   return expectedUserData;
 };
 
+const calcExpectedInterestRates = (
+    reserveSymbol: string,
+    utilizationRate: BigNumber,
+): { liquidityRate: BigNumber, variableBorrowRate: BigNumber } => {
+  const {reservesParams} = _config;
+
+  const reserveConfiguration = reservesParams.get(reserveSymbol);
+
+  if (!reserveConfiguration) {
+    throw `Reserve configuration for ${reserveSymbol} not found`;
+  }
+
+  let variableBorrowRate = reserveConfiguration.baseVariableBorrowRate;
+
+  if (utilizationRate.gt(OPTIMAL_UTILIZATION_RATE)) {
+    const excessUtilizationRateRatio = rayDiv(
+        utilizationRate.minus(OPTIMAL_UTILIZATION_RATE),
+        EXCESS_UTILIZATION_RATE
+    );
+
+    variableBorrowRate = variableBorrowRate
+        .plus(reserveConfiguration.variableRateSlope1)
+        .plus(
+            rayMul(
+                reserveConfiguration.variableRateSlope2,
+                excessUtilizationRateRatio
+            )
+        );
+  } else {
+    variableBorrowRate = variableBorrowRate.plus(
+        rayMul(
+            rayDiv(utilizationRate, OPTIMAL_UTILIZATION_RATE),
+            reserveConfiguration.variableRateSlope1
+        )
+    );
+  }
+
+  const liquidityRate =
+      rayMul(
+          variableBorrowRate,
+          utilizationRate
+      );
+
+  return {
+    liquidityRate,
+    variableBorrowRate
+  };
+};
+
 export const calcExpectedReserveDataAfterDeposit = (
   amountDeposited: bigint,
   reserveDataBeforeAction: ReserveData,
-  txTimestamp: number
+  txTimestamp: bigint
 ): ReserveData => {
   const expectedReserveData: ReserveData = <ReserveData>{};
 
@@ -123,38 +181,105 @@ export const calcExpectedReserveDataAfterDeposit = (
   expectedReserveData.availableLiquidity =
       reserveDataBeforeAction.availableLiquidity + amountDeposited;
 
-  // expectedReserveData.totalBorrowsStable = reserveDataBeforeAction.totalBorrowsStable;
   expectedReserveData.totalBorrowsVariable = reserveDataBeforeAction.totalBorrowsVariable;
-  // expectedReserveData.averageStableBorrowRate = reserveDataBeforeAction.averageStableBorrowRate;
 
   expectedReserveData.utilizationRate = calcExpectedUtilizationRate(
-    // expectedReserveData.totalBorrowsStable,
     expectedReserveData.totalBorrowsVariable,
     expectedReserveData.totalLiquidity
   );
-  // const rates = calcExpectedInterestRates(
-  //   reserveDataBeforeAction.symbol,
-  //   reserveDataBeforeAction.marketStableRate,
-  //   expectedReserveData.utilizationRate,
-  //   expectedReserveData.totalBorrowsStable,
-  //   expectedReserveData.totalBorrowsVariable,
-  //   expectedReserveData.averageStableBorrowRate
-  // );
-  // expectedReserveData.liquidityRate = rates[0];
-  // expectedReserveData.stableBorrowRate = rates[1];
-  // expectedReserveData.variableBorrowRate = rates[2];
-  //
-  // expectedReserveData.averageStableBorrowRate = reserveDataBeforeAction.averageStableBorrowRate;
-  // expectedReserveData.liquidityIndex = calcExpectedLiquidityIndex(
-  //   reserveDataBeforeAction,
-  //   txTimestamp
-  // );
-  // expectedReserveData.variableBorrowIndex = calcExpectedVariableBorrowIndex(
-  //   reserveDataBeforeAction,
-  //   txTimestamp
-  // );
+
+  const { liquidityRate, variableBorrowRate } = calcExpectedInterestRates(
+    reserveDataBeforeAction.symbol,
+    expectedReserveData.utilizationRate,
+  );
+  expectedReserveData.liquidityRate = liquidityRate;
+  expectedReserveData.variableBorrowRate = variableBorrowRate;
+
+  expectedReserveData.liquidityIndex = calcExpectedLiquidityIndex(
+    reserveDataBeforeAction,
+    txTimestamp
+  );
+
+  expectedReserveData.variableBorrowIndex = calcExpectedVariableBorrowIndex(
+    reserveDataBeforeAction,
+    txTimestamp
+  );
 
   return expectedReserveData;
+};
+
+const calcExpectedVariableBorrowIndex = (reserveData: ReserveData, timestamp: bigint) => {
+  //if utilization rate is 0, nothing to compound
+  if (reserveData.utilizationRate.eq('0')) {
+    return reserveData.variableBorrowIndex;
+  }
+
+  const cumulatedInterest = calcCompoundedInterest(
+      reserveData.variableBorrowRate,
+      timestamp,
+      reserveData.lastUpdateTimestamp
+  );
+
+  return rayMul(
+      cumulatedInterest,
+      reserveData.variableBorrowIndex
+  );
+};
+
+const calcCompoundedInterest = (
+    rate: BigNumber,
+    currentTimestamp: bigint,
+    lastUpdateTimestamp: bigint
+) => {
+  const timeDifference = currentTimestamp - lastUpdateTimestamp;
+
+  const ratePerSecond = rate.div(SECONDS_PER_YEAR);
+
+  const compoundedInterest =
+      rayPow(
+          ratePerSecond.plus(RAY),
+          new BigNumber(timeDifference.toString())
+      )
+
+  return compoundedInterest;
+};
+
+const calcExpectedLiquidityIndex = (reserveData: ReserveData, timestamp: bigint) => {
+  //if utilization rate is 0, nothing to compound
+  if (reserveData.utilizationRate.eq('0')) {
+    return reserveData.liquidityIndex;
+  }
+
+  const cumulatedInterest = calcLinearInterest(
+      reserveData.liquidityRate,
+      timestamp,
+      reserveData.lastUpdateTimestamp
+  );
+
+  return rayMul(
+      cumulatedInterest,
+      reserveData.liquidityIndex
+  );
+};
+
+const calcLinearInterest = (
+    rate: BigNumber,
+    currentTimestamp: bigint,
+    lastUpdateTimestamp: bigint
+) => {
+  const timeDifference =  wadToRay(new BigNumber((currentTimestamp - lastUpdateTimestamp).toString()));
+
+  const timeDelta = rayDiv(
+      timeDifference,
+      wadToRay(new BigNumber(SECONDS_PER_YEAR).toString())
+  )
+
+  const cumulatedInterest = rayMul(
+      rate,
+      timeDelta
+  ).plus(RAY);
+
+  return cumulatedInterest;
 };
 
 const calcExpectedUtilizationRate = (
