@@ -10,19 +10,19 @@ const setupFunction: DeployFunction = async function (hre: HardhatRuntimeEnviron
     const reservesList = [
         {
             tokenSymbol: 'ETH',
-            tokenAddress: tokenList.ETH.address,
+            tokenAddress: tokenList.get('ETH'),
             strategy: await deployments.get('ETHInterestRateStrategy'),
             aToken: await deployments.get('aETH'),
         },
         {
             tokenSymbol: 'USDC',
-            tokenAddress: tokenList.USDC.address,
+            tokenAddress: tokenList.get('USDC'),
             strategy: await deployments.get('USDCInterestRateStrategy'),
             aToken: await deployments.get('aUSDC'),
         },
         {
             tokenSymbol: 'DAI',
-            tokenAddress: tokenList.DAI.address,
+            tokenAddress: tokenList.get('DAI'),
             strategy: await deployments.get('DAIInterestRateStrategy'),
             aToken: await deployments.get('aDAI'),
         }
@@ -44,22 +44,6 @@ const setupFunction: DeployFunction = async function (hre: HardhatRuntimeEnviron
             ...[tokenAddress, aToken.address, decimals, strategy.address]
         )
     }
-
-    // for (const strategyInfo of strategyInfoList) {
-    //     const { tokenSymbol, tokenAddress, strategy } = strategyInfo;
-    //     await deployments.deploy(`${tokenSymbol}InterestRateStrategy`, {
-    //         contract: 'contracts/DefaultReserveInterestRateStrategy.sol:DefaultReserveInterestRateStrategy',
-    //         from: deployer,
-    //         log: true,
-    //         args: [
-    //             tokenAddress,
-    //             addressesProvider.address,
-    //             strategy.baseVariableBorrowRate,
-    //             strategy.variableRateSlope1,
-    //             strategy.variableRateSlope2,
-    //         ]
-    //     });
-    // }
 };
 
 setupFunction.tags = ['reserves', 'interest-rate-strategy', 'token-actions'];

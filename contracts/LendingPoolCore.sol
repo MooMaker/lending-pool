@@ -164,9 +164,9 @@ contract LendingPoolCore is Initializable {
     * @param _amount the amount being transferred
     **/
     function transferToReserve(address _reserve, address payable _user, uint256 _amount)
-    external
-    payable
-    onlyLendingPool
+        external
+        payable
+        onlyLendingPool
     {
         if (_reserve != EthAddressLib.ethAddress()) {
             require(msg.value == 0, "User is sending ETH along with the ERC20 transfer.");

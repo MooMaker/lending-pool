@@ -1,8 +1,10 @@
 import { DeployFunction } from 'hardhat-deploy/types';
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import {getTokenListForNetwork} from "../../lib/utils/token";
+import {writeToJSON} from "../../lib/test/utils";
+import {TOKEN_DECIMALS} from "../../lib/constants/tokens";
 
-type ATokenInfo = {
+export type ATokenInfo = {
     symbol: string;
     name: string;
     underlyingAssetAddress: string;
@@ -14,28 +16,43 @@ const setupFunction: DeployFunction = async function (hre: HardhatRuntimeEnviron
     const { deployments } = hre;
 
     const tokenList = getTokenListForNetwork(hre.network);
+    const ethAddress = tokenList.get('ETH');
+    const usdcAddress = tokenList.get('USDC');
+    const daiAddress = tokenList.get('DAI');
+
+    if (!ethAddress || !usdcAddress || !daiAddress) {
+        throw `One of the token addresses is missing: \nETH: ${ethAddress}\nUSDC: ${usdcAddress}\nDAI: ${daiAddress}\nPlease check the token list in 'lib/utils/token.ts`;
+    }
+
+    const [ethDecimals, usdcDecimals, daiDecimals] = [TOKEN_DECIMALS.get('ETH'), TOKEN_DECIMALS.get('USDC'), TOKEN_DECIMALS.get('DAI')];
+    if (!ethDecimals || !usdcDecimals || !daiDecimals) {
+        throw `One of the token decimals is missing: \nETH: ${ethDecimals}\nUSDC: ${usdcDecimals}\nDAI: ${daiDecimals}\nPlease check the token decimals in 'lib/constants/tokens.ts`;
+    }
+
+    const tokenPrefix = 'a';
 
     const TOKENS: ATokenInfo[] = [{
-        symbol: 'aETH',
+        symbol: 'ETH',
         name: 'Liquorice interest bearing ETH',
-        underlyingAssetAddress: tokenList.ETH.address,
-        decimals: tokenList.ETH.decimals
+        underlyingAssetAddress: ethAddress,
+        decimals: ethDecimals,
     }, {
-        symbol: 'aUSDC',
+        symbol: 'USDC',
         name: 'Liquorice interest bearing USDC',
-        underlyingAssetAddress: tokenList.USDC.address,
-        decimals: tokenList.USDC.decimals,
+        underlyingAssetAddress: usdcAddress,
+        decimals: usdcDecimals,
     }, {
-        symbol: 'aDAI',
+        symbol: 'DAI',
         name: 'Liquorice interest bearing DAI',
-        underlyingAssetAddress: tokenList.DAI.address,
-        decimals: tokenList.DAI.decimals,
+        underlyingAssetAddress: daiAddress,
+        decimals: usdcDecimals,
     }];
 
     const addressesProvider = await deployments.get('AddressesProvider');
 
     for (const token of TOKENS) {
-        await deployments.deploy(`${token.symbol}`, {
+        const name = `${tokenPrefix}${token.symbol}`;
+        const deployment = await deployments.deploy(name, {
             contract: 'contracts/token/AToken.sol:AToken',
             from: deployer,
             log: true,
@@ -46,6 +63,11 @@ const setupFunction: DeployFunction = async function (hre: HardhatRuntimeEnviron
                 token.name,
                 token.symbol
             ],
+        });
+
+        await writeToJSON('./deploy.config.json', {
+            [name]: deployment.address,
+            [token.symbol]: token.underlyingAssetAddress
         });
     }
 };

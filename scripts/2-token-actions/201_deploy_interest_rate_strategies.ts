@@ -1,21 +1,8 @@
 import { DeployFunction } from 'hardhat-deploy/types';
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import {getTokenListForNetwork} from "../../lib/utils/token";
-
-type InterestRateStrategy = {
-    optimalUsage: number;
-    baseVariableBorrowRate: number;
-    variableRateSlope1: number;
-    variableRateSlope2: number;
-}
-
-const STRATEGY_VOLATILE_ONE: InterestRateStrategy = {
-    optimalUsage: 45,
-    baseVariableBorrowRate: 0,
-    // TODO: convert properly to RAY
-    variableRateSlope1: 4, // 4%
-    variableRateSlope2: 300, // 300%
-}
+import {writeToJSON} from "../../lib/test/utils";
+import {STRATEGY_VOLATILE_ONE} from "../../lib/constants/reserves";
 
 const setupFunction: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     const { deployer } = await hre.getNamedAccounts();
@@ -25,18 +12,19 @@ const setupFunction: DeployFunction = async function (hre: HardhatRuntimeEnviron
 
     const strategyInfoList = [
         {
+            // TODO: refactor to use SYMBOLS constant
             tokenSymbol: 'ETH',
-            tokenAddress: tokenList.ETH.address,
+            tokenAddress: tokenList.get('ETH'),
             strategy: STRATEGY_VOLATILE_ONE,
         },
         {
             tokenSymbol: 'USDC',
-            tokenAddress: tokenList.USDC.address,
+            tokenAddress: tokenList.get('USDC'),
             strategy: STRATEGY_VOLATILE_ONE,
         },
         {
             tokenSymbol: 'DAI',
-            tokenAddress: tokenList.DAI.address,
+            tokenAddress: tokenList.get('DAI'),
             strategy: STRATEGY_VOLATILE_ONE,
         }
     ];
@@ -45,17 +33,22 @@ const setupFunction: DeployFunction = async function (hre: HardhatRuntimeEnviron
 
     for (const strategyInfo of strategyInfoList) {
         const { tokenSymbol, tokenAddress, strategy } = strategyInfo;
-        await deployments.deploy(`${tokenSymbol}InterestRateStrategy`, {
+        const name = `${tokenSymbol}InterestRateStrategy`;
+        const deployment = await deployments.deploy(name, {
             contract: 'contracts/DefaultReserveInterestRateStrategy.sol:DefaultReserveInterestRateStrategy',
             from: deployer,
             log: true,
             args: [
                 tokenAddress,
                 addressesProvider.address,
-                strategy.baseVariableBorrowRate,
-                strategy.variableRateSlope1,
-                strategy.variableRateSlope2,
+                `0x${strategy.baseVariableBorrowRate.toString(16)}`,
+                `0x${strategy.variableRateSlope1.toString(16)}`,
+                `0x${strategy.variableRateSlope2.toString(16)}`,
             ]
+        });
+
+        await writeToJSON('./deploy.config.json', {
+            [name]: deployment.address,
         });
     }
 };
