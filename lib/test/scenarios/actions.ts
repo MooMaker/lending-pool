@@ -190,38 +190,22 @@ export const deposit = async (
             txTimestamp
         );
 
-        // const expectedUserReserveData = calcExpectedUserDataAfterDeposit(
-        //     amountToDeposit,
-        //     reserveDataBefore,
-        //     expectedReserveData,
-        //     userDataBefore,
-        //     txTimestamp,
-        //     timestamp,
-        //     txCost
-        // );
-
-        // console.dir({
-        //     reserveDataAfter
-        // }, { depth: null })
-        //
-        // console.dir({
-        //     expectedReserveData
-        // }, { depth: null })
-        //
-        // expect(reserveDataAfter)
-        //     .to.deep.contain(expectedReserveData);
+        const expectedUserReserveData = calcExpectedUserDataAfterDeposit(
+            amountToDeposit,
+            reserveDataBefore,
+            expectedReserveData,
+            userDataBefore,
+            txTimestamp,
+            timestamp,
+            txCost
+        );
 
         expectEqual(reserveDataAfter, expectedReserveData);
-        // expectEqual(userDataAfter, expectedUserReserveData);
-        //
-        // truffleAssert.eventEmitted(txResult, 'Deposit', (ev: any) => {
-        //     const {_reserve, _user, _amount} = ev;
-        //     return (
-        //         _reserve === reserve &&
-        //         _user === user &&
-        //         new BigNumber(_amount).isEqualTo(new BigNumber(amountToDeposit))
-        //     );
-        // });
+        expectEqual(userDataAfter, expectedUserReserveData);
+
+        await expect(txResult)
+            .to.emit(lendingPool, 'Deposit')
+            .withArgs(reserve, userAddress, amountToDeposit, txTimestamp);
     } else if (expectedResult === 'revert') {
         // await expectRevert(
         //     lendingPoolInstance.deposit(reserve, amountToDeposit, '0', txOptions),
@@ -283,6 +267,7 @@ const expectEqual = (
     actual: UserReserveData | ReserveData,
     expected: UserReserveData | ReserveData
 ) => {
+    // @ts-ignore
     expect(actual).to.be.almostEqualOrEqual(expected);
 };
 

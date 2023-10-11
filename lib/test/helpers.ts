@@ -151,16 +151,12 @@ export const getUserData = async (
 
     return {
         principalATokenBalance,
-        // interestRedirectionAddress,
-        // redirectionAddressRedirectedBalance: new BigNumber(redirectionAddressRedirectedBalance),
-        // redirectedBalance: new BigNumber(redirectedBalance),
-        currentATokenUserIndex: userIndex,
+        currentATokenUserIndex: new BigNumberZD(userIndex.toString()),
         currentATokenBalance: userData.currentATokenBalance,
         currentBorrowBalance: userData.currentBorrowBalance,
         principalBorrowBalance: userData.principalBorrowBalance,
-        borrowRateMode: userData.borrowRateMode.toString(),
         borrowRate: userData.borrowRate,
-        liquidityRate: userData.liquidityRate,
+        liquidityRate: new BigNumberZD(userData.liquidityRate.toString()),
         originationFee: userData.originationFee,
         variableBorrowIndex: userData.variableBorrowIndex,
         lastUpdateTimestamp: userData.lastUpdateTimestamp,

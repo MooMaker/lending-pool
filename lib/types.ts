@@ -24,19 +24,15 @@ export interface ReserveData {
 export interface UserReserveData {
     principalATokenBalance: bigint
     currentATokenBalance: bigint
-    currentATokenUserIndex: bigint
-    // interestRedirectionAddress: string
-    // redirectionAddressRedirectedBalance: bigint
-    // redirectedBalance: bigint
+    currentATokenUserIndex: BigNumber
     principalBorrowBalance: bigint
-    borrowRateMode: string
-    borrowRate: bigint
-    liquidityRate: bigint
+    borrowRate: BigNumber
+    liquidityRate: BigNumber
     originationFee: bigint
-    variableBorrowIndex: bigint
+    variableBorrowIndex: BigNumber
     lastUpdateTimestamp: bigint
     // usageAsCollateralEnabled: Boolean
     walletBalance: bigint
     currentBorrowBalance: bigint
-    [key: string]: bigint | string | Boolean
+    [key: string]: bigint | string | Boolean | BigNumber
 }
