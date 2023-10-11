@@ -214,10 +214,14 @@ export const deposit = async (
             .to.emit(lendingPool, 'Deposit')
             .withArgs(reserve, userAddress, amountToDeposit, txTimestamp);
     } else if (expectedResult === 'revert') {
-        // await expectRevert(
-        //     lendingPoolInstance.deposit(reserve, amountToDeposit, '0', txOptions),
-        //     revertMessage
-        // );
+        if (!revertMessage) {
+            throw new Error('Revert message is missing in scenario');
+        }
+
+        const txResult = lendingPool
+            .connect(user)
+            .deposit(reserve, amountToDeposit, txOptions);
+        await expect(txResult).to.be.revertedWith(revertMessage);
     }
 };
 
