@@ -70,7 +70,7 @@ export const convertToCurrencyDecimals = (currencySymbol: string, amount: string
         throw `Could not find decimals for currency ${currencySymbol}`;
     }
 
-    return BigInt(amount) * BigInt(10 ** decimals);
+    return hre.ethers.parseUnits(amount, decimals);
 }
 
 export const getReserveData = async (

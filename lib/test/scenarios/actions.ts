@@ -8,7 +8,7 @@ import {
     getReserveData, getUserData,
     getWhaleAddressForToken
 } from "../helpers";
-import {ETH as ETH_ADDRESS} from "../../constants/tokens";
+import {ETH as ETH_ADDRESS, SYMBOLS} from "../../constants/tokens";
 import {ContractTransactionResponse} from "../../../../../dev/ethers.js";
 import {calcExpectedReserveDataAfterDeposit, calcExpectedUserDataAfterDeposit} from "../calculations";
 import {ReserveData, UserReserveData} from "../../types";
@@ -51,7 +51,7 @@ export const transfer = async (reserveSymbol: string, amount: string, user: stri
     const reserve = await getReserveAddressFromSymbol(reserveSymbol);
 
     if (ETH_ADDRESS === reserve.toLowerCase()) {
-        throw 'Cannot mint ethereum. Mint action is most likely not needed in this story';
+        throw new Error('Cannot mint ethereum. Mint action is most likely not needed in this story');
     }
 
     const tokenContract = tokensPerAddress.get(reserve);
@@ -83,18 +83,18 @@ export const approve = async (reserveSymbol: string, userAddress: string) => {
     const { lendingPoolCore } = _config.contracts;
 
     if (!lendingPoolCore) {
-        throw 'Lending pool core is not set in configuration';
+        throw new Error('Lending pool core is not set in configuration');
     }
 
     const reserve = await getReserveAddressFromSymbol(reserveSymbol);
 
     if (ETH_ADDRESS === reserve) {
-        throw 'Cannot mint ethereum. Mint action is most likely not needed in this story';
+        throw new Error('Cannot mint ethereum. Mint action is most likely not needed in this story');
     }
 
     const tokenContract = tokens.get(reserveSymbol);
     if (!tokenContract) {
-        throw `Token contract not found for ${reserveSymbol}`;
+        throw new Error(`Token contract not found for ${reserveSymbol}`);
     }
 
     const user = await hre.ethers.getSigner(userAddress);
@@ -124,17 +124,26 @@ export const deposit = async (
     const { lendingPool, lendingPoolCore } = _config.contracts;
     const { tokens } = await getEnvironment();
 
-    const tokenContract = tokens.get(reserveSymbol);
-    if (!tokenContract) {
-        throw `Token contract not found for ${reserveSymbol}`;
+    let balance = 0n;
+    let decimals = 18n;
+    if (reserveSymbol === SYMBOLS.ETH) {
+        balance = await hre.ethers.provider.getBalance(userAddress);
+    } else {
+        const tokenContract = tokens.get(reserveSymbol);
+        if (!tokenContract) {
+            throw new Error(`Token contract not found for ${reserveSymbol}`);
+        }
+
+        balance = await tokenContract.balanceOf(userAddress);
+        decimals = await tokenContract.decimals();
     }
 
     if (!lendingPool) {
-        throw 'Lending pool is not set in configuration';
+        throw new Error('Lending pool is not set in configuration');
     }
 
     if (!lendingPoolCore) {
-        throw 'Lending pool core is not set in configuration';
+        throw new Error('Lending pool core is not set in configuration');
     }
 
     const reserve = await getReserveAddressFromSymbol(reserveSymbol);
@@ -161,20 +170,18 @@ export const deposit = async (
     }
 
     const user = await hre.ethers.getSigner(userAddress);
-    const balance = await tokenContract.balanceOf(userAddress);
-    const decimals = await tokenContract.decimals();
 
     console.log(`[Action: Deposit] User ${userAddress} with balance of ${hre.ethers.formatUnits(balance, decimals)} ${reserveSymbol} deposits ${amount} ${reserveSymbol} to the pool`);
     if (expectedResult === 'success') {
         const { tokens } = await getEnvironment();
         const dai = tokens.get('DAI');
         if (!dai) {
-            throw 'DAI token not found in environment';
+            throw new Error('DAI token not found in environment');
         }
 
         const txResult = await lendingPool
             .connect(user)
-            .deposit(reserve, amountToDeposit, 0, txOptions);
+            .deposit(reserve, amountToDeposit, txOptions);
 
         const {
             reserveData: reserveDataAfter,
@@ -238,11 +245,11 @@ const getContractsData = async (reserve: string, user: string) => {
     const { lendingPool, lendingPoolCore } = _config.contracts;
 
     if (!lendingPool) {
-        throw 'Lending pool is not set in configuration';
+        throw new Error('Lending pool is not set in configuration');
     }
 
     if (!lendingPoolCore) {
-        throw 'Lending pool core is not set in configuration';
+        throw new Error('Lending pool core is not set in configuration');
     }
 
     const [reserveData, userData, timestamp] = await Promise.all([
