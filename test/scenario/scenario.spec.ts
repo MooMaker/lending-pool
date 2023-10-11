@@ -21,39 +21,39 @@ describe('Scenario tests', () => {
         users = await hre.getUnnamedAccounts();
     });
 
-    beforeEach(async () => {
-        const {
-            lendingPool,
-            lendingPoolCore,
-            aTokensPerSymbol,
-            aTokensPerAddress
-        } = await loadFixture(setupContracts);
-
-        // Prepare config for actions module
-        setActionsConfig({
-            contracts: {
-                lendingPool,
-                lendingPoolCore,
-                aTokensPerSymbol,
-                aTokensPerAddress
-            },
-            ethereumAddress: ETH,
-            skipIntegrityCheck: false
-        })
-
-        // Prepare config for calculations module
-        setCalcConfig({
-            reservesParams: new Map([
-                [SYMBOLS.ETH, STRATEGY_VOLATILE_ONE],
-                [SYMBOLS.DAI, STRATEGY_VOLATILE_ONE],
-                [SYMBOLS.USDC, STRATEGY_VOLATILE_ONE],
-            ]),
-            ethereumAddress: ETH
-        });
-    });
-
     scenarioSpec.forEach((scenario) => {
-        describe.only(scenario.title, () => {
+        describe(scenario.title, () => {
+            before(async () => {
+                const {
+                    lendingPool,
+                    lendingPoolCore,
+                    aTokensPerSymbol,
+                    aTokensPerAddress
+                } = await loadFixture(setupContracts);
+
+                // Prepare config for actions module
+                setActionsConfig({
+                    contracts: {
+                        lendingPool,
+                        lendingPoolCore,
+                        aTokensPerSymbol,
+                        aTokensPerAddress
+                    },
+                    ethereumAddress: ETH,
+                    skipIntegrityCheck: false
+                })
+
+                // Prepare config for calculations module
+                setCalcConfig({
+                    reservesParams: new Map([
+                        [SYMBOLS.ETH, STRATEGY_VOLATILE_ONE],
+                        [SYMBOLS.DAI, STRATEGY_VOLATILE_ONE],
+                        [SYMBOLS.USDC, STRATEGY_VOLATILE_ONE],
+                    ]),
+                    ethereumAddress: ETH
+                });
+            });
+
             scenario.stories.forEach((story) => {
                 it(story.description, async () => {
                     await executeStory(story, users);

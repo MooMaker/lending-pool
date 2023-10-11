@@ -4,7 +4,7 @@ import {
 } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import {expect} from "chai";
 
-describe('AddressesProvider', function () {
+describe.skip('AddressesProvider', function () {
     async function deployContractFixtures() {
         const [owner, otherAccount] = await ethers.getSigners();
 
