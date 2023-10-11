@@ -4,14 +4,14 @@
 - Node v16+
 
 ## Setup
+
+### Install dependencies
 - `$ npm install`
+### Configure environment variables
+- `$ cp .env.example .env` // Change values as needed
 
 ## Deployment
 - `$ npx hardhat deploy --network <network>`
 
-## Tests
-
-### Unit/integration tests
+### Tests
 - `$ npx hardhat test`
-
-### E2E tests
