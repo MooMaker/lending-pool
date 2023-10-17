@@ -14,7 +14,8 @@
     "bignumber.js": "^9.1.2",
     "dotenv": "^16.3.1",
     "hardhat": "^2.17.3",
-    "hardhat-deploy": "^0.11.37"
+    "hardhat-deploy": "^0.11.37",
+    "prettier": "^3.0.3"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.9.3",
