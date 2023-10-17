@@ -74,9 +74,8 @@ contract LendingPoolCore is Initializable {
         address _reserve,
         address _aTokenAddress,
         uint256 _decimals,
-        address _interestRateStrategyAddress
-    ) external // TODO: implement configurator
-    /* onlyLendingPoolConfigurator */ {
+        address _interestRateStrategyAddress // TODO: implement configurator
+    ) external /* onlyLendingPoolConfigurator */ {
         reserves[_reserve].init(
             _aTokenAddress,
             _decimals,
@@ -219,10 +218,8 @@ contract LendingPoolCore is Initializable {
      * @param _reserve the address of the reserve
      **/
     function activateReserve(
-        address _reserve
-    ) external // TODO: onlyLendingPoolConfigurator
-    //onlyLendingPoolConfigurator
-    {
+        address _reserve // TODO: onlyLendingPoolConfigurator //onlyLendingPoolConfigurator
+    ) external {
         CoreLibrary.ReserveData storage reserve = reserves[_reserve];
 
         require(
@@ -237,9 +234,9 @@ contract LendingPoolCore is Initializable {
      * @dev deactivates a reserve
      * @param _reserve the address of the reserve
      **/
-    function deactivateReserve(address _reserve) external // TODO: implement
-    //onlyLendingPoolConfigurator
-    {
+    function deactivateReserve(
+        address _reserve // TODO: implement //onlyLendingPoolConfigurator
+    ) external {
         CoreLibrary.ReserveData storage reserve = reserves[_reserve];
         reserve.isActive = false;
     }

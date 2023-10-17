@@ -172,8 +172,9 @@ const getATokenUserData = async (
   user: string,
   coreInstance: LendingPoolCore,
 ) => {
-  const aTokenAddress: string =
-    await coreInstance.getReserveATokenAddress(reserve);
+  const aTokenAddress: string = await coreInstance.getReserveATokenAddress(
+    reserve,
+  );
 
   const { aTokensPerAddress } = getConfig().contracts;
   const aTokenInstance = aTokensPerAddress.get(aTokenAddress);

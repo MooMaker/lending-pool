@@ -12,5 +12,6 @@
         "bracketSpacing": false
       }
     }
-  ]
+  ],
+  "trailingComma": "all"
 }

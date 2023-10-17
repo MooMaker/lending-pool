@@ -6,8 +6,9 @@ describe.skip("AddressesProvider", function () {
   async function deployContractFixtures() {
     const [owner, otherAccount] = await ethers.getSigners();
 
-    const AddressesProvider =
-      await ethers.getContractFactory("AddressesProvider");
+    const AddressesProvider = await ethers.getContractFactory(
+      "AddressesProvider",
+    );
     const addressesProvider = await AddressesProvider.deploy();
     const lendingPoolAddress = ethers.getCreateAddress({
       from: owner.address,

@@ -56,16 +56,19 @@ export async function setupContracts(): Promise<{
   interestRateStrategies: Map<string, DefaultReserveInterestRateStrategy>;
 }> {
   const deploy = async () => {
-    const addressesProviderFactory =
-      await hre.ethers.getContractFactory("AddressesProvider");
+    const addressesProviderFactory = await hre.ethers.getContractFactory(
+      "AddressesProvider",
+    );
     const addressesProvider = await addressesProviderFactory.deploy();
 
-    const lendingPoolFactory =
-      await hre.ethers.getContractFactory("LendingPool");
+    const lendingPoolFactory = await hre.ethers.getContractFactory(
+      "LendingPool",
+    );
     const lendingPool = await lendingPoolFactory.deploy();
 
-    const lendingPoolCoreFactory =
-      await hre.ethers.getContractFactory("LendingPoolCore");
+    const lendingPoolCoreFactory = await hre.ethers.getContractFactory(
+      "LendingPoolCore",
+    );
     const lendingPoolCore = await lendingPoolCoreFactory.deploy();
 
     return {
