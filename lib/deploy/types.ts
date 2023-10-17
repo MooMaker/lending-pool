@@ -1,3 +1,3 @@
 export type DeployConfig = {
-    [key: string]: string
-}
+  [key: string]: string;
+};

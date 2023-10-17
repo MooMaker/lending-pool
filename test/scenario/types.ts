@@ -1,27 +1,27 @@
 export type DepositActionArgs = {
-    reserve: string;
-    amount: string;
-    user: string,
-    sendValue?: string;
-}
+  reserve: string;
+  amount: string;
+  user: string;
+  sendValue?: string;
+};
 
 // TODO: add more action args types with OR
 type ActionArgs = DepositActionArgs;
 
 export type Action = {
-    name: string,
-    args: ActionArgs,
-    expected: 'revert' | 'success',
-    revertMessage?: string,
-}
+  name: string;
+  args: ActionArgs;
+  expected: "revert" | "success";
+  revertMessage?: string;
+};
 
 export type Story = {
-    description: string;
-    actions: Action[]
-}
+  description: string;
+  actions: Action[];
+};
 
 export type Scenario = {
-    title: string;
-    description: string;
-    stories: Story[];
-}
+  title: string;
+  description: string;
+  stories: Story[];
+};
