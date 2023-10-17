@@ -9,7 +9,10 @@ library CoreLibrary {
     using WadRayMath for uint256;
 
     // TODO(stable): handle stable rate mode?
-    enum InterestRateMode {NONE, /*STABLE,*/ VARIABLE}
+    enum InterestRateMode {
+        NONE,
+        /*STABLE,*/ VARIABLE
+    }
 
     uint256 internal constant SECONDS_PER_YEAR = 365 days;
 
@@ -21,10 +24,10 @@ library CoreLibrary {
         //origination fee cumulated by the user
         uint256 originationFee;
         // stable borrow rate at which the user has borrowed. Expressed in ray
-//        uint256 stableBorrowRate;
+        //        uint256 stableBorrowRate;
         uint40 lastUpdateTimestamp;
         //defines if a specific deposit should or not be used as a collateral in borrows
-//        bool useAsCollateral;
+        //        bool useAsCollateral;
     }
 
     struct ReserveData {
@@ -41,12 +44,12 @@ library CoreLibrary {
         //the decimals of the reserve asset
         uint256 decimals;
         /**
-        * @dev address of the interest rate strategy contract
-        **/
+         * @dev address of the interest rate strategy contract
+         **/
         address interestRateStrategyAddress;
         /**
-        * @dev address of the aToken representing the asset
-        **/
+         * @dev address of the aToken representing the asset
+         **/
         address aTokenAddress;
         uint40 lastUpdateTimestamp;
         // isActive = true means the reserve has been activated and properly configured
@@ -54,19 +57,22 @@ library CoreLibrary {
     }
 
     /**
-    * @dev initializes a reserve
-    * @param _self the reserve object
-    * @param _aTokenAddress the address of the overlying atoken contract
-    * @param _decimals the number of decimals of the underlying asset
-    * @param _interestRateStrategyAddress the address of the interest rate strategy contract
-    **/
+     * @dev initializes a reserve
+     * @param _self the reserve object
+     * @param _aTokenAddress the address of the overlying atoken contract
+     * @param _decimals the number of decimals of the underlying asset
+     * @param _interestRateStrategyAddress the address of the interest rate strategy contract
+     **/
     function init(
         ReserveData storage _self,
         address _aTokenAddress,
         uint256 _decimals,
         address _interestRateStrategyAddress
     ) internal {
-        require(_self.aTokenAddress == address(0), "Reserve has already been initialized");
+        require(
+            _self.aTokenAddress == address(0),
+            "Reserve has already been initialized"
+        );
 
         if (_self.lastLiquidityCumulativeIndex == 0) {
             //if the reserve has not been initialized yet
@@ -83,35 +89,32 @@ library CoreLibrary {
         _self.interestRateStrategyAddress = _interestRateStrategyAddress;
         _self.isActive = true;
         // TODO(freezing): implement
-//        _self.isFreezed = false;
+        //        _self.isFreezed = false;
     }
 
     /**
-    * @dev returns the ongoing normalized income for the reserve.
-    * a value of 1e27 means there is no income. As time passes, the income is accrued.
-    * A value of 2*1e27 means that the income of the reserve is double the initial amount.
-    * @param _reserve the reserve object
-    * @return the normalized income. expressed in ray
-    **/
-    function getNormalizedIncome(CoreLibrary.ReserveData storage _reserve)
-        internal
-        view
-        returns (uint256)
-    {
+     * @dev returns the ongoing normalized income for the reserve.
+     * a value of 1e27 means there is no income. As time passes, the income is accrued.
+     * A value of 2*1e27 means that the income of the reserve is double the initial amount.
+     * @param _reserve the reserve object
+     * @return the normalized income. expressed in ray
+     **/
+    function getNormalizedIncome(
+        CoreLibrary.ReserveData storage _reserve
+    ) internal view returns (uint256) {
         uint256 cumulated = calculateLinearInterest(
             _reserve.currentLiquidityRate,
             _reserve.lastUpdateTimestamp
         ).rayMul(_reserve.lastLiquidityCumulativeIndex);
 
         return cumulated;
-
     }
 
     /**
-    * @dev Updates the liquidity cumulative index Ci and variable borrow cumulative index Bvc. Refer to the whitepaper for
-    * a formal specification.
-    * @param _self the reserve object
-    **/
+     * @dev Updates the liquidity cumulative index Ci and variable borrow cumulative index Bvc. Refer to the whitepaper for
+     * a formal specification.
+     * @param _self the reserve object
+     **/
     function updateCumulativeIndexes(ReserveData storage _self) internal {
         uint256 totalBorrowsVariable = getTotalBorrows(_self);
 
@@ -123,52 +126,55 @@ library CoreLibrary {
             );
 
             // TODO: needs to be set to 1 ray by default?
-            _self.lastLiquidityCumulativeIndex = cumulatedLiquidityInterest.rayMul(
-                _self.lastLiquidityCumulativeIndex
-            );
+            _self.lastLiquidityCumulativeIndex = cumulatedLiquidityInterest
+                .rayMul(_self.lastLiquidityCumulativeIndex);
 
             uint256 cumulatedVariableBorrowInterest = calculateCompoundedInterest(
-                _self.currentVariableBorrowRate,
-                _self.lastUpdateTimestamp
-            );
-            _self.lastVariableBorrowCumulativeIndex = cumulatedVariableBorrowInterest.rayMul(
-                _self.lastVariableBorrowCumulativeIndex
-            );
+                    _self.currentVariableBorrowRate,
+                    _self.lastUpdateTimestamp
+                );
+            _self
+                .lastVariableBorrowCumulativeIndex = cumulatedVariableBorrowInterest
+                .rayMul(_self.lastVariableBorrowCumulativeIndex);
         }
     }
 
     /**
-    * @dev function to calculate the interest using a linear interest rate formula
-    * @param _rate the interest rate, in ray
-    * @param _lastUpdateTimestamp the timestamp of the last update of the interest
-    * @return the interest rate linearly accumulated during the timeDelta, in ray
-    **/
-    function calculateLinearInterest(uint256 _rate, uint40 _lastUpdateTimestamp)
-        internal
-        view
-        returns (uint256)
-    {
+     * @dev function to calculate the interest using a linear interest rate formula
+     * @param _rate the interest rate, in ray
+     * @param _lastUpdateTimestamp the timestamp of the last update of the interest
+     * @return the interest rate linearly accumulated during the timeDelta, in ray
+     **/
+    function calculateLinearInterest(
+        uint256 _rate,
+        uint40 _lastUpdateTimestamp
+    ) internal view returns (uint256) {
         //solium-disable-next-line
-        uint256 timeDifference = block.timestamp.sub(uint256(_lastUpdateTimestamp));
+        uint256 timeDifference = block.timestamp.sub(
+            uint256(_lastUpdateTimestamp)
+        );
 
-        uint256 timeDelta = timeDifference.wadToRay().rayDiv(SECONDS_PER_YEAR.wadToRay());
+        uint256 timeDelta = timeDifference.wadToRay().rayDiv(
+            SECONDS_PER_YEAR.wadToRay()
+        );
 
         return _rate.rayMul(timeDelta).add(WadRayMath.ray());
     }
 
     /**
-    * @dev function to calculate the interest using a compounded interest rate formula
-    * @param _rate the interest rate, in ray
-    * @param _lastUpdateTimestamp the timestamp of the last update of the interest
-    * @return the interest rate compounded during the timeDelta, in ray
-    **/
-    function calculateCompoundedInterest(uint256 _rate, uint40 _lastUpdateTimestamp)
-        internal
-        view
-        returns (uint256)
-    {
+     * @dev function to calculate the interest using a compounded interest rate formula
+     * @param _rate the interest rate, in ray
+     * @param _lastUpdateTimestamp the timestamp of the last update of the interest
+     * @return the interest rate compounded during the timeDelta, in ray
+     **/
+    function calculateCompoundedInterest(
+        uint256 _rate,
+        uint40 _lastUpdateTimestamp
+    ) internal view returns (uint256) {
         //solium-disable-next-line
-        uint256 timeDifference = block.timestamp.sub(uint256(_lastUpdateTimestamp));
+        uint256 timeDifference = block.timestamp.sub(
+            uint256(_lastUpdateTimestamp)
+        );
 
         uint256 ratePerSecond = _rate.div(SECONDS_PER_YEAR);
 
@@ -176,52 +182,53 @@ library CoreLibrary {
     }
 
     /**
-    * @dev returns the total borrows on the reserve
-    * @param _reserve the reserve object
-    * @return the total borrows (stable + variable)
-    **/
-    function getTotalBorrows(CoreLibrary.ReserveData storage _reserve)
-        internal
-        view
-        returns (uint256)
-    {
+     * @dev returns the total borrows on the reserve
+     * @param _reserve the reserve object
+     * @return the total borrows (stable + variable)
+     **/
+    function getTotalBorrows(
+        CoreLibrary.ReserveData storage _reserve
+    ) internal view returns (uint256) {
         return _reserve.totalBorrowsVariable;
     }
 
     /**
-    * @dev calculates the compounded borrow balance of a user
-    * @param _self the userReserve object
-    * @param _reserve the reserve object
-    * @return the user compounded borrow balance
-    **/
+     * @dev calculates the compounded borrow balance of a user
+     * @param _self the userReserve object
+     * @param _reserve the reserve object
+     * @return the user compounded borrow balance
+     **/
     function getCompoundedBorrowBalance(
         CoreLibrary.UserReserveData storage _self,
         CoreLibrary.ReserveData storage _reserve
     ) internal view returns (uint256) {
         if (_self.principalBorrowBalance == 0) return 0;
 
-        uint256 principalBorrowBalanceRay = _self.principalBorrowBalance.wadToRay();
+        uint256 principalBorrowBalanceRay = _self
+            .principalBorrowBalance
+            .wadToRay();
         uint256 compoundedBalance = 0;
         uint256 cumulatedInterest = 0;
 
         // TODO: handle stable?
-//        if (_self.stableBorrowRate > 0) {
-//            cumulatedInterest = calculateCompoundedInterest(
-//                _self.stableBorrowRate,
-//                _self.lastUpdateTimestamp
-//            );
-//        } else {
-            //variable interest
-            cumulatedInterest = calculateCompoundedInterest(
-                _reserve
-                .currentVariableBorrowRate,
-                _reserve
-                .lastUpdateTimestamp
-            ).rayMul(_reserve.lastVariableBorrowCumulativeIndex)
-            .rayDiv(_self.lastVariableBorrowCumulativeIndex);
-//        }
+        //        if (_self.stableBorrowRate > 0) {
+        //            cumulatedInterest = calculateCompoundedInterest(
+        //                _self.stableBorrowRate,
+        //                _self.lastUpdateTimestamp
+        //            );
+        //        } else {
+        //variable interest
+        cumulatedInterest = calculateCompoundedInterest(
+            _reserve.currentVariableBorrowRate,
+            _reserve.lastUpdateTimestamp
+        ).rayMul(_reserve.lastVariableBorrowCumulativeIndex).rayDiv(
+                _self.lastVariableBorrowCumulativeIndex
+            );
+        //        }
 
-        compoundedBalance = principalBorrowBalanceRay.rayMul(cumulatedInterest).rayToWad();
+        compoundedBalance = principalBorrowBalanceRay
+            .rayMul(cumulatedInterest)
+            .rayToWad();
 
         if (compoundedBalance == _self.principalBorrowBalance) {
             //solium-disable-next-line

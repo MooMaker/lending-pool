@@ -23,6 +23,7 @@ library WadRayMath {
     function ray() internal pure returns (uint256) {
         return RAY;
     }
+
     function wad() internal pure returns (uint256) {
         return WAD;
     }
@@ -66,12 +67,11 @@ library WadRayMath {
     }
 
     /**
-        * @dev calculates base^exp. The code uses the ModExp precompile
-        * @return z (base^exp, in ray)
-    */
+     * @dev calculates base^exp. The code uses the ModExp precompile
+     * @return z (base^exp, in ray)
+     */
     //solium-disable-next-line
     function rayPow(uint256 x, uint256 n) internal pure returns (uint256 z) {
-
         z = n % 2 != 0 ? x : RAY;
 
         for (n /= 2; n != 0; n /= 2) {
@@ -82,5 +82,4 @@ library WadRayMath {
             }
         }
     }
-
 }
