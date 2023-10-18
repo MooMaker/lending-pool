@@ -1,3 +1,5 @@
+name: Code Quality
+
 on:
   push:
     branches:
@@ -7,7 +9,7 @@ on:
       - master
 
 jobs:
-  lint:
+  checks:
 
     runs-on: ubuntu-latest
 
