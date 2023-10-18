@@ -1,32 +1,11 @@
 import hre from "hardhat";
 import { ETH, ETH as ETH_ADDRESS, TOKEN_DECIMALS } from "../constants/tokens";
-import deployConfigJSON from "../../deploy.config.json";
-import { DeployConfig } from "../deploy/types";
 import { ReserveData, UserReserveData } from "../types";
 import { LendingPool, LendingPoolCore } from "../../typechain-types";
 import { getEnvironment } from "./scenarios/common";
 import BigNumber from "bignumber.js";
 import { getConfig } from "./scenarios/actions";
 import { BigNumberZD } from "../utils/bignumber";
-
-const deployConfig = deployConfigJSON as DeployConfig;
-export const getReserveAddressFromSymbol = async (symbol: string) => {
-  symbol = symbol.toUpperCase();
-  if (symbol === "ETH") {
-    return ETH_ADDRESS;
-  }
-
-  let address;
-  if (symbol in deployConfig) {
-    address = deployConfig[symbol];
-  }
-
-  if (!address) {
-    throw `Could not find address for contract ${symbol}`;
-  }
-
-  return address;
-};
 
 export const getWhaleAddressForToken = (symbol: string): string => {
   let address = "";

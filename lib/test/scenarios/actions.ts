@@ -5,7 +5,6 @@ import { setBalance, time } from "@nomicfoundation/hardhat-network-helpers";
 
 import {
   convertToCurrencyDecimals,
-  getReserveAddressFromSymbol,
   getReserveData,
   getUserData,
   getWhaleAddressForToken,
@@ -55,17 +54,15 @@ export const transfer = async (
   amount: string,
   user: string,
 ) => {
-  const { tokensPerAddress } = await getEnvironment();
+  const { tokens } = await getEnvironment();
 
-  const reserve = await getReserveAddressFromSymbol(reserveSymbol);
-
-  if (ETH_ADDRESS === reserve.toLowerCase()) {
+  if (reserveSymbol === SYMBOLS.ETH) {
     throw new Error(
       "Cannot mint ethereum. Mint action is most likely not needed in this story",
     );
   }
 
-  const tokenContract = tokensPerAddress.get(reserve);
+  const tokenContract = tokens.get(reserveSymbol);
   if (!tokenContract) {
     throw `Token contract not found for ${reserveSymbol}`;
   }
@@ -106,9 +103,7 @@ export const approve = async (reserveSymbol: string, userAddress: string) => {
     throw new Error("Lending pool core is not set in configuration");
   }
 
-  const reserve = await getReserveAddressFromSymbol(reserveSymbol);
-
-  if (ETH_ADDRESS === reserve) {
+  if (reserveSymbol === SYMBOLS.ETH) {
     throw new Error(
       "Cannot mint ethereum. Mint action is most likely not needed in this story",
     );
@@ -159,6 +154,8 @@ export const deposit = async (
 
   let balance = 0n;
   let decimals = 18n;
+  let reserve = ETH_ADDRESS;
+
   if (reserveSymbol === SYMBOLS.ETH) {
     balance = await hre.ethers.provider.getBalance(userAddress);
   } else {
@@ -169,6 +166,7 @@ export const deposit = async (
 
     balance = await tokenContract.balanceOf(userAddress);
     decimals = await tokenContract.decimals();
+    reserve = await tokenContract.getAddress();
   }
 
   if (!lendingPool) {
@@ -178,8 +176,6 @@ export const deposit = async (
   if (!lendingPoolCore) {
     throw new Error("Lending pool core is not set in configuration");
   }
-
-  const reserve = await getReserveAddressFromSymbol(reserveSymbol);
 
   const amountToDeposit = convertToCurrencyDecimals(reserveSymbol, amount);
 
