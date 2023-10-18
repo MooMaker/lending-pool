@@ -17,7 +17,7 @@ describe.skip("AddressesProvider", function () {
     await addressesProvider.setLendingPoolImpl(lendingPoolAddress);
 
     const LendingPool = await ethers.getContractFactory("LendingPool");
-    const lendingPool = await LendingPool.deploy(addressesProvider);
+    const lendingPool = await LendingPool.deploy();
 
     const lendingPoolCoreAddress = ethers.getCreateAddress({
       from: owner.address,
@@ -26,7 +26,7 @@ describe.skip("AddressesProvider", function () {
     await addressesProvider.setLendingPoolCoreImpl(lendingPoolCoreAddress);
 
     const LendingPoolCore = await ethers.getContractFactory("LendingPoolCore");
-    const lendingPoolCore = await LendingPoolCore.deploy(addressesProvider);
+    const lendingPoolCore = await LendingPoolCore.deploy();
 
     return {
       addressesProvider,
