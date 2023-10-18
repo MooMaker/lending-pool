@@ -23,6 +23,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Run ESlint
-        run: npm run eslint
+        run: npm run eslint:check
 
 
