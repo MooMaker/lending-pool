@@ -19,7 +19,7 @@ import { BigNumberZD } from "../utils/bignumber";
 type CalcConfig = {
   reservesParams: Map<string, InterestRateStrategy>;
   ethereumAddress: string;
-}
+};
 
 let _config = <CalcConfig>{};
 

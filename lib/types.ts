@@ -19,7 +19,7 @@ export type ReserveData = {
   lastUpdateTimestamp: bigint;
   liquidityRate: BigNumber;
   [key: string]: bigint | string | BigNumber;
-}
+};
 
 export type UserReserveData = {
   principalATokenBalance: bigint;
@@ -35,4 +35,4 @@ export type UserReserveData = {
   walletBalance: bigint;
   currentBorrowBalance: bigint;
   [key: string]: bigint | string | boolean | BigNumber;
-}
+};
