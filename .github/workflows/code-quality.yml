@@ -27,6 +27,6 @@ jobs:
       - name: Run Solhint check
         run: npm run solhint:check
       - name: Run Prettier check
-        run: npm run pretiter:check
+        run: npm run prettier:check
       - name: Run TypeScript check
         run: npm run types:check
