@@ -10,7 +10,10 @@
     "eslint:check": "eslint .",
     "solhint:check": "solhint contracts/**/*.sol",
     "prettier:check": "prettier --check .",
-    "types:check": "tsc --noEmit"
+    "types:check": "tsc --noEmit",
+    "eslint:fix": "eslint --fix .",
+    "solhint:fix": "solhint --fix contracts/**/*.sol",
+    "prettier:fix": "prettier --write ."
   },
   "author": "Liquorice",
   "license": "ISC",
