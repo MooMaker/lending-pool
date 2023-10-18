@@ -6,8 +6,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "deploy": "hardhat deploy",
-    "lint:check": "npm run eslint && npm run prettier && npm run types",
+    "code-quality": "npm run eslint && npm run solhint && npm run prettier && npm run types",
     "eslint": "eslint .",
+    "solhint": "solhint contracts/**/*.sol",
     "prettier": "prettier --check .",
     "types": "tsc --noEmit"
   },
@@ -24,7 +25,9 @@
     "hardhat": "^2.17.3",
     "hardhat-deploy": "^0.11.37",
     "prettier": "^2.0.0",
-    "prettier-plugin-solidity": "^1.1.3"
+    "prettier-plugin-solidity": "^1.1.3",
+    "solhint": "^3.6.2",
+    "solhint-plugin-prettier": "^0.0.5"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.9.3",
