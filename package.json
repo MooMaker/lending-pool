@@ -6,11 +6,11 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "deploy": "hardhat deploy",
-    "code-quality": "npm run eslint && npm run solhint && npm run prettier && npm run types",
-    "eslint": "eslint .",
-    "solhint": "solhint contracts/**/*.sol",
-    "prettier": "prettier --check .",
-    "types": "tsc --noEmit"
+    "code-quality:check": "npm run eslint:check && npm run solhint:check && npm run prettier:check && npm run types:check",
+    "eslint:check": "eslint .",
+    "solhint:check": "solhint contracts/**/*.sol",
+    "prettier:check": "prettier --check .",
+    "types:check": "tsc --noEmit"
   },
   "author": "Liquorice",
   "license": "ISC",
