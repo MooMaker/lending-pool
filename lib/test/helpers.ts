@@ -79,7 +79,7 @@ export const getReserveData = async (
   poolInstance: LendingPool,
   reserve: string,
 ): Promise<ReserveData> => {
-  const data: any = await poolInstance.getReserveData(reserve);
+  const data = await poolInstance.getReserveData(reserve);
 
   const isEthReserve = reserve === ETH_ADDRESS;
   let symbol = "ETH";
@@ -105,8 +105,8 @@ export const getReserveData = async (
     liquidityRate: new BigNumberZD(data.liquidityRate.toString()),
     variableBorrowRate: new BigNumber(data.variableBorrowRate.toString()),
     utilizationRate: new BigNumber(data.utilizationRate.toString()),
-    liquidityIndex: new BigNumber(data.liquidityIndex),
-    variableBorrowIndex: new BigNumber(data.variableBorrowIndex),
+    liquidityIndex: new BigNumber(data.liquidityIndex.toString()),
+    variableBorrowIndex: new BigNumber(data.variableBorrowIndex.toString()),
     lastUpdateTimestamp: data.lastUpdateTimestamp,
     address: reserve,
     aTokenAddress: data.aTokenAddress,
@@ -149,7 +149,7 @@ export const getUserData = async (
     walletBalance = await reserveInstance.balanceOf(user);
   }
 
-  const userData: any = data;
+  const userData = data;
 
   return {
     principalATokenBalance,
@@ -157,10 +157,12 @@ export const getUserData = async (
     currentATokenBalance: userData.currentATokenBalance,
     currentBorrowBalance: userData.currentBorrowBalance,
     principalBorrowBalance: userData.principalBorrowBalance,
-    borrowRate: userData.borrowRate,
+    borrowRate: new BigNumberZD(userData.borrowRate.toString()),
     liquidityRate: new BigNumberZD(userData.liquidityRate.toString()),
     originationFee: userData.originationFee,
-    variableBorrowIndex: userData.variableBorrowIndex,
+    variableBorrowIndex: new BigNumberZD(
+      userData.variableBorrowIndex.toString(),
+    ),
     lastUpdateTimestamp: userData.lastUpdateTimestamp,
     // usageAsCollateralEnabled: userData.usageAsCollateralEnabled,
     walletBalance,

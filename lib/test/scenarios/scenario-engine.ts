@@ -43,7 +43,7 @@ const executeAction = async (action: Action, users: string[]) => {
       break;
 
     case "deposit": {
-      let { amount, sendValue } = action.args;
+      const { amount, sendValue } = action.args;
 
       if (!amount || amount === "") {
         throw `Invalid amount to deposit into the ${reserve} reserve`;

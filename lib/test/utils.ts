@@ -15,9 +15,13 @@ export async function writeToJSON(
   try {
     const fileContents = await fs.readFile(filePath, "utf-8");
     data = JSON.parse(fileContents);
-  } catch (error: any) {
-    // If file doesn't exist, start with an empty object
-    if (error.code != "ENOENT") {
+  } catch (error: unknown) {
+    if (error instanceof Error && "code" in error) {
+      if (error.code != "ENOENT") {
+        // If file doesn't exist, start with an empty object
+        throw error;
+      }
+    } else {
       throw error;
     }
   }

@@ -19,9 +19,13 @@ export const verifyContract = async (
       contract,
       constructorArguments: deploy.args,
     });
-  } catch (err: any) {
-    if (err.message.includes("Reason: Already Verified")) {
-      console.log("Contract is already verified!");
+  } catch (err: unknown) {
+    if (err instanceof Error) {
+      if (err.message.includes("Reason: Already Verified")) {
+        console.log("Contract is already verified!");
+      } else {
+        console.log(err);
+      }
     } else {
       console.log(err);
     }

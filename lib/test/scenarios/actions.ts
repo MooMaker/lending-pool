@@ -1,5 +1,6 @@
 import hre from "hardhat";
 import chai from "chai";
+import type Chai from "chai";
 import { setBalance, time } from "@nomicfoundation/hardhat-network-helpers";
 
 import {
@@ -185,7 +186,7 @@ export const deposit = async (
   const { reserveData: reserveDataBefore, userData: userDataBefore } =
     await getContractsData(reserve, userAddress);
 
-  let txOptions = {
+  const txOptions = {
     value: 0n,
   };
   if (ETH_ADDRESS === reserve) {
@@ -305,12 +306,14 @@ const expectEqual = (
   actual: UserReserveData | ReserveData,
   expected: UserReserveData | ReserveData,
 ) => {
+  // Ignoring because don't want to spend time on extending Assertion interface
+  // eslint-disable-next-line
   // @ts-ignore
   expect(actual).to.be.almostEqualOrEqual(expected);
 };
 
 const almostEqualOrEqual = function (
-  this: any,
+  this: Chai.AssertionStatic,
   expected: ReserveData | UserReserveData,
   actual: ReserveData | UserReserveData,
 ) {
@@ -331,6 +334,8 @@ const almostEqualOrEqual = function (
     this.assert(
       actual[key] != undefined,
       `Property ${key} is undefined in the actual data`,
+      `Property ${key} is not undefined in the actual data`,
+      expected[key],
     );
     expect(
       expected[key] != undefined,
@@ -372,17 +377,17 @@ const almostEqualOrEqual = function (
   });
 };
 
-chai.use(function (chai: any, utils: any) {
-  chai.Assertion.overwriteMethod(
-    "almostEqualOrEqual",
-    function (original: any) {
-      return function (this: any, expected: ReserveData | UserReserveData) {
-        const actual = (expected as ReserveData)
-          ? <ReserveData>this._obj
-          : <UserReserveData>this._obj;
+chai.use(function (chai: Chai.ChaiStatic) {
+  chai.Assertion.overwriteMethod("almostEqualOrEqual", function () {
+    return function (
+      this: Chai.AssertionStatic,
+      expected: ReserveData | UserReserveData,
+    ) {
+      const actual = (expected as ReserveData)
+        ? <ReserveData>this._obj
+        : <UserReserveData>this._obj;
 
-        almostEqualOrEqual.apply(this, [expected, actual]);
-      };
-    },
-  );
+      almostEqualOrEqual.apply(this, [expected, actual]);
+    };
+  });
 });

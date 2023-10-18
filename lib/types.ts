@@ -1,6 +1,6 @@
 import BigNumber from "bignumber.js";
 
-export interface ReserveData {
+export type ReserveData = {
   address: string;
   symbol: string;
   decimals: bigint;
@@ -21,7 +21,7 @@ export interface ReserveData {
   [key: string]: bigint | string | BigNumber;
 }
 
-export interface UserReserveData {
+export type UserReserveData = {
   principalATokenBalance: bigint;
   currentATokenBalance: bigint;
   currentATokenUserIndex: BigNumber;
@@ -34,5 +34,5 @@ export interface UserReserveData {
   // usageAsCollateralEnabled: Boolean
   walletBalance: bigint;
   currentBorrowBalance: bigint;
-  [key: string]: bigint | string | Boolean | BigNumber;
+  [key: string]: bigint | string | boolean | BigNumber;
 }

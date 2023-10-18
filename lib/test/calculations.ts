@@ -16,7 +16,7 @@ import {
 import { SECONDS_PER_YEAR } from "../constants/common";
 import { BigNumberZD } from "../utils/bignumber";
 
-interface CalcConfig {
+type CalcConfig = {
   reservesParams: Map<string, InterestRateStrategy>;
   ethereumAddress: string;
 }
@@ -108,7 +108,7 @@ const calcExpectedATokenUserIndex = (
     return new BigNumberZD(0);
   }
 
-  let result = calcExpectedReserveNormalizedIncome(
+  const result = calcExpectedReserveNormalizedIncome(
     reserveDataBeforeAction,
     currentTimestamp,
   );
