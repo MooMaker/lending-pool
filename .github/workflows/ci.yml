@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  code-quality:
+    name: Code Quality
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "20.x"
+      - name: Install dependencies
+        run: npm ci
+      - name: Compile contracts
+        run: npm run compile
+      - name: Run ESLint check
+        run: npm run eslint:check
+      - name: Run Solhint check
+        run: npm run solhint:check
+      - name: Run Prettier check
+        run: npm run prettier:check
+      - name: Run TypeScript check
+        run: npm run types:check

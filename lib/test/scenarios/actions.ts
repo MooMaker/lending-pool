@@ -2,6 +2,7 @@ import hre from "hardhat";
 import chai from "chai";
 import type Chai from "chai";
 import { setBalance, time } from "@nomicfoundation/hardhat-network-helpers";
+import { ContractTransactionResponse } from "ethers";
 
 import {
   convertToCurrencyDecimals,
@@ -10,7 +11,6 @@ import {
   getWhaleAddressForToken,
 } from "../helpers";
 import { ETH as ETH_ADDRESS, SYMBOLS } from "../../constants/tokens";
-import { ContractTransactionResponse } from "../../../../../dev/ethers.js";
 import {
   calcExpectedReserveDataAfterDeposit,
   calcExpectedUserDataAfterDeposit,
