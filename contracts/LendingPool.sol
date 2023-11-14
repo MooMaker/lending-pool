@@ -274,7 +274,6 @@ contract LendingPool is ReentrancyGuard, Initializable {
             /* vars.borrowFee */ 0,
             vars.borrowBalanceIncrease,
             _referralCode,
-            //solium-disable-next-line
             block.timestamp
         );
     }

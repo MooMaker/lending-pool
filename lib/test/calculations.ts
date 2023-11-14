@@ -285,6 +285,160 @@ export const calcExpectedReserveDataAfterDeposit = (
   return expectedReserveData;
 };
 
+export const calcExpectedReserveDataAfterBorrow = (
+  amountBorrowed: bigint,
+  reserveDataBeforeAction: ReserveData,
+  userDataBeforeAction: UserReserveData,
+  txTimestamp: bigint,
+): ReserveData => {
+  const expectedReserveData = <ReserveData>{};
+
+  expectedReserveData.address = reserveDataBeforeAction.address;
+
+  let userBalanceIncrease = 0n;
+  let userCurrentBorrowBalance = 0n;
+
+  if (userDataBeforeAction.currentBorrowBalance > 0n) {
+    //if the user performing the action had already a borrow, we need to compound the balance until the action
+
+    userCurrentBorrowBalance = calcExpectedCompoundedBorrowBalance(
+      userDataBeforeAction,
+      reserveDataBeforeAction,
+      txTimestamp,
+    );
+
+    userBalanceIncrease =
+      userCurrentBorrowBalance - userDataBeforeAction.principalBorrowBalance;
+
+    expectedReserveData.totalLiquidity =
+      reserveDataBeforeAction.totalLiquidity + userBalanceIncrease;
+  } else {
+    expectedReserveData.totalLiquidity = reserveDataBeforeAction.totalLiquidity;
+  }
+
+  expectedReserveData.availableLiquidity =
+    reserveDataBeforeAction.availableLiquidity - amountBorrowed;
+
+  expectedReserveData.totalBorrowsVariable =
+    reserveDataBeforeAction.totalBorrowsVariable -
+    userDataBeforeAction.principalBorrowBalance;
+
+  expectedReserveData.totalBorrowsVariable =
+    expectedReserveData.totalBorrowsVariable +
+    userDataBeforeAction.principalBorrowBalance +
+    userBalanceIncrease +
+    amountBorrowed;
+
+  expectedReserveData.utilizationRate = calcExpectedUtilizationRate(
+    expectedReserveData.totalBorrowsVariable,
+    expectedReserveData.totalLiquidity,
+  );
+
+  const { liquidityRate, variableBorrowRate } = calcExpectedInterestRates(
+    reserveDataBeforeAction.symbol,
+    expectedReserveData.utilizationRate,
+  );
+  expectedReserveData.liquidityRate = liquidityRate;
+  expectedReserveData.variableBorrowRate = variableBorrowRate;
+
+  expectedReserveData.liquidityIndex = calcExpectedLiquidityIndex(
+    reserveDataBeforeAction,
+    txTimestamp,
+  );
+  expectedReserveData.variableBorrowIndex = calcExpectedVariableBorrowIndex(
+    reserveDataBeforeAction,
+    txTimestamp,
+  );
+
+  return expectedReserveData;
+};
+
+export const calcExpectedUserDataAfterBorrow = (
+  amountBorrowed: bigint,
+  reserveDataBeforeAction: ReserveData,
+  expectedDataAfterAction: ReserveData,
+  userDataBeforeAction: UserReserveData,
+  txTimestamp: bigint,
+  currentTimestamp: bigint,
+  txCost: bigint,
+): UserReserveData => {
+  const expectedUserData = <UserReserveData>{};
+
+  // TODO(fee): handle fee properly
+  // const originationFee = calcExpectedOriginationFee(amountBorrowed);
+  const originationFee = 0n;
+
+  const borrowBalanceBeforeTx = calcExpectedCompoundedBorrowBalance(
+    userDataBeforeAction,
+    reserveDataBeforeAction,
+    txTimestamp,
+  );
+
+  expectedUserData.principalBorrowBalance =
+    borrowBalanceBeforeTx + amountBorrowed;
+
+  if (currentTimestamp > txTimestamp) {
+    //calculate also the accrued balance after the time passed
+    const borrowBalanceAfterTx = calcExpectedCompoundedBorrowBalance(
+      {
+        ...userDataBeforeAction,
+        borrowRate: expectedDataAfterAction.variableBorrowRate,
+        principalBorrowBalance: borrowBalanceBeforeTx + amountBorrowed,
+        variableBorrowIndex: expectedDataAfterAction.variableBorrowIndex,
+        lastUpdateTimestamp: txTimestamp,
+      },
+      reserveDataBeforeAction,
+      currentTimestamp,
+    );
+
+    expectedUserData.currentBorrowBalance = borrowBalanceAfterTx;
+  } else {
+    expectedUserData.currentBorrowBalance =
+      expectedUserData.principalBorrowBalance;
+  }
+
+  expectedUserData.borrowRate = expectedDataAfterAction.variableBorrowRate;
+  expectedUserData.variableBorrowIndex =
+    expectedDataAfterAction.variableBorrowIndex;
+
+  expectedUserData.liquidityRate = expectedDataAfterAction.liquidityRate;
+
+  expectedUserData.originationFee =
+    userDataBeforeAction.originationFee + originationFee;
+
+  expectedUserData.usageAsCollateralEnabled =
+    userDataBeforeAction.usageAsCollateralEnabled;
+
+  expectedUserData.currentATokenBalance = calcExpectedATokenBalance(
+    reserveDataBeforeAction,
+    userDataBeforeAction,
+    txTimestamp,
+  );
+  expectedUserData.principalATokenBalance =
+    userDataBeforeAction.principalATokenBalance;
+  // TODO: handle redirects?
+  // expectedUserData.redirectedBalance = userDataBeforeAction.redirectedBalance;
+  // expectedUserData.interestRedirectionAddress = userDataBeforeAction.interestRedirectionAddress;
+  // expectedUserData.redirectionAddressRedirectedBalance =
+  //   userDataBeforeAction.redirectionAddressRedirectedBalance;
+  expectedUserData.currentATokenUserIndex = calcExpectedATokenUserIndex(
+    reserveDataBeforeAction,
+    expectedUserData.currentATokenBalance,
+    // expectedUserData.redirectedBalance,
+    txTimestamp,
+  );
+
+  if (reserveDataBeforeAction.address === _config.ethereumAddress) {
+    expectedUserData.walletBalance =
+      userDataBeforeAction.walletBalance - txCost + amountBorrowed;
+  } else {
+    expectedUserData.walletBalance =
+      userDataBeforeAction.walletBalance + amountBorrowed;
+  }
+
+  return expectedUserData;
+};
+
 const calcExpectedVariableBorrowIndex = (
   reserveData: ReserveData,
   timestamp: bigint,

@@ -5,8 +5,15 @@ export type DepositActionArgs = {
   sendValue?: string;
 };
 
+export type BorrowActionArgs = {
+  reserve: string;
+  amount: string;
+  user: string;
+  timeTravel?: string;
+};
+
 // TODO: add more action args types with OR
-type ActionArgs = DepositActionArgs;
+type ActionArgs = DepositActionArgs | BorrowActionArgs;
 
 export type Action = {
   name: string;
@@ -17,6 +24,7 @@ export type Action = {
 
 export type Story = {
   description: string;
+  skip: boolean;
   actions: Action[];
 };
 

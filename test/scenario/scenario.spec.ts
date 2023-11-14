@@ -2,6 +2,7 @@ import hre from "hardhat";
 import { Scenario } from "./types";
 
 import DEPOSIT_SCENARIO from "./scenarios/deposit.json";
+import BORROW_REPAY_SCENARIO from "./scenarios/borrow-repay.json";
 import { executeStory } from "../../lib/test/scenarios/scenario-engine";
 import { setConfig as setActionsConfig } from "../../lib/test/scenarios/actions";
 import { setConfig as setCalcConfig } from "../../lib/test/calculations";
@@ -10,7 +11,10 @@ import { setupContracts } from "../../lib/test/scenarios/common";
 import { ETH, SYMBOLS } from "../../lib/constants/tokens";
 import { STRATEGY_VOLATILE_ONE } from "../../lib/constants/reserves";
 
-const scenarioSpec = [DEPOSIT_SCENARIO as Scenario];
+const scenarioSpec = [
+  DEPOSIT_SCENARIO as Scenario,
+  BORROW_REPAY_SCENARIO as Scenario,
+];
 
 describe("Scenario tests", () => {
   let users: string[] = [];
@@ -53,7 +57,11 @@ describe("Scenario tests", () => {
       });
 
       scenario.stories.forEach((story) => {
-        it(story.description, async () => {
+        it(story.description, async function () {
+          if (story.skip) {
+            this.skip();
+          }
+
           await executeStory(story, users);
         });
       });

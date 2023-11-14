@@ -1,7 +1,7 @@
 import hre from "hardhat";
 import chai from "chai";
-import type Chai from "chai";
 import { setBalance, time } from "@nomicfoundation/hardhat-network-helpers";
+import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { ContractTransactionResponse } from "ethers";
 
 import {
@@ -12,7 +12,9 @@ import {
 } from "../helpers";
 import { ETH as ETH_ADDRESS, SYMBOLS } from "../../constants/tokens";
 import {
+  calcExpectedReserveDataAfterBorrow,
   calcExpectedReserveDataAfterDeposit,
+  calcExpectedUserDataAfterBorrow,
   calcExpectedUserDataAfterDeposit,
 } from "../calculations";
 import { ReserveData, UserReserveData } from "../../types";
@@ -20,6 +22,7 @@ import { expect } from "chai";
 import { AToken, LendingPool, LendingPoolCore } from "../../../typechain-types";
 import { getEnvironment } from "./common";
 import BigNumber from "bignumber.js";
+import { SECONDS_PER_YEAR } from "../../constants/common";
 
 type ActionsConfig = {
   contracts: {
@@ -254,6 +257,108 @@ export const deposit = async (
   }
 };
 
+export const borrow = async (
+  reserveSymbol: string,
+  amount: string,
+  userAddress: string,
+  timeTravel: string | undefined,
+  expectedResult: string,
+  revertMessage?: string,
+) => {
+  const { lendingPool } = _config.contracts;
+  const { tokens } = await getEnvironment();
+
+  let reserve = ETH_ADDRESS;
+
+  if (reserveSymbol !== SYMBOLS.ETH) {
+    const tokenContract = tokens.get(reserveSymbol);
+    if (!tokenContract) {
+      throw new Error(`Token contract not found for ${reserveSymbol}`);
+    }
+
+    reserve = await tokenContract.getAddress();
+  }
+
+  if (!lendingPool) {
+    throw new Error("Lending pool is not set in configuration");
+  }
+
+  const { reserveData: reserveDataBefore, userData: userDataBefore } =
+    await getContractsData(reserve, userAddress);
+
+  const amountToBorrow = convertToCurrencyDecimals(reserveSymbol, amount);
+
+  const user = await hre.ethers.getSigner(userAddress);
+
+  console.log(
+    `[Action: Borrow] User ${userAddress} borrows ${amount} ${reserveSymbol} from the pool`,
+  );
+
+  if (expectedResult === "success") {
+    const txResult = await lendingPool
+      .connect(user)
+      .borrow(reserve, amountToBorrow, "0");
+
+    const { txCost, txTimestamp } = await getTxCostAndTimestamp(txResult);
+
+    if (timeTravel) {
+      const secondsToTravel = new BigNumber(timeTravel)
+        .multipliedBy(SECONDS_PER_YEAR)
+        .div(365)
+        .toNumber();
+
+      await time.increase(secondsToTravel);
+    }
+
+    const {
+      reserveData: reserveDataAfter,
+      userData: userDataAfter,
+      timestamp,
+    } = await getContractsData(reserve, userAddress);
+
+    const expectedReserveData = calcExpectedReserveDataAfterBorrow(
+      amountToBorrow,
+      reserveDataBefore,
+      userDataBefore,
+      txTimestamp,
+    );
+
+    const expectedUserData = calcExpectedUserDataAfterBorrow(
+      amountToBorrow,
+      reserveDataBefore,
+      expectedReserveData,
+      userDataBefore,
+      txTimestamp,
+      timestamp,
+      txCost,
+    );
+    expectEqual(reserveDataAfter, expectedReserveData);
+    expectEqual(userDataAfter, expectedUserData);
+
+    await expect(txResult)
+      .to.emit(lendingPool, "Borrow")
+      .withArgs(
+        reserve,
+        userAddress,
+        amountToBorrow,
+        expectedUserData.borrowRate.toFixed(),
+        anyValue,
+        anyValue,
+        anyValue,
+        txTimestamp,
+      );
+  } else if (expectedResult === "revert") {
+    if (!revertMessage) {
+      throw new Error("Revert message is missing in scenario");
+    }
+
+    const txResult = await lendingPool
+      .connect(user)
+      .borrow(reserve, amountToBorrow, "0");
+    await expect(txResult).to.be.revertedWith(revertMessage);
+  }
+};
+
 const getTxCostAndTimestamp = async (tx: ContractTransactionResponse) => {
   const receipt = await tx.wait();
 
@@ -338,12 +443,19 @@ const almostEqualOrEqual = function (
       `Property ${key} is undefined in the expected data`,
     );
 
-    if (actual[key] instanceof BigNumber) {
-      const actualValue = (<BigNumber>actual[key]).decimalPlaces(
-        0,
-        BigNumber.ROUND_DOWN,
-      );
-      const expectedValue = (<BigNumber>expected[key]).decimalPlaces(
+    if (actual[key] instanceof BigNumber || typeof actual[key] === "bigint") {
+      let actualValueBN: BigNumber;
+      let expectedValueBN: BigNumber;
+      if (typeof actual[key] === "bigint") {
+        actualValueBN = new BigNumber(actual[key].toString());
+        expectedValueBN = new BigNumber(expected[key].toString());
+      } else {
+        actualValueBN = actual[key] as BigNumber;
+        expectedValueBN = expected[key] as BigNumber;
+      }
+
+      const actualValue = actualValueBN.decimalPlaces(0, BigNumber.ROUND_DOWN);
+      const expectedValue = expectedValueBN.decimalPlaces(
         0,
         BigNumber.ROUND_DOWN,
       );
