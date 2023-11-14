@@ -61,6 +61,11 @@ export async function setupContracts(): Promise<{
   interestRateStrategies: Map<string, DefaultReserveInterestRateStrategy>;
 }> {
   const deployContracts = async () => {
+    const coreLibraryFactory = await hre.ethers.getContractFactory(
+      "CoreLibrary",
+    );
+    const coreLibrary = await coreLibraryFactory.deploy();
+
     const addressesProviderFactory = await hre.ethers.getContractFactory(
       "AddressesProvider",
     );
@@ -73,6 +78,11 @@ export async function setupContracts(): Promise<{
 
     const lendingPoolCoreFactory = await hre.ethers.getContractFactory(
       "LendingPoolCore",
+      {
+        libraries: {
+          CoreLibrary: await coreLibrary.getAddress(),
+        },
+      },
     );
     const lendingPoolCore = await lendingPoolCoreFactory.deploy();
 
@@ -365,6 +375,8 @@ export async function setupContracts(): Promise<{
         decimals,
         strategy,
       );
+
+      await lendingPoolCore.enableReserveAsCollateral(tokenAddress);
     }
   };
 

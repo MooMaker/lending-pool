@@ -843,4 +843,29 @@ contract LendingPoolCore is Initializable {
             require(result, "Transfer of ETH failed");
         }
     }
+
+    /**
+     * @dev enables a reserve to be used as collateral
+     * @param _reserve the address of the reserve
+     **/
+    function enableReserveAsCollateral(
+        address _reserve // TODO(liquidation): implement //        uint256 _baseLTVasCollateral, //        uint256 _liquidationThreshold, //        uint256 _liquidationBonus
+    ) external // TODO(liquidation): implement configurator
+    //        onlyLendingPoolConfigurator
+    {
+        reserves[_reserve].enableAsCollateral();
+        //            _baseLTVasCollateral,
+        //            _liquidationThreshold,
+        //            _liquidationBonus
+    }
+
+    /**
+     * @dev disables a reserve to be used as collateral
+     * @param _reserve the address of the reserve
+     **/
+    function disableReserveAsCollateral(
+        address _reserve // TODO(liquidation): implement //onlyLendingPoolConfigurator
+    ) external {
+        reserves[_reserve].disableAsCollateral();
+    }
 }

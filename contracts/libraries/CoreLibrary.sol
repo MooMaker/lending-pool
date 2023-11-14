@@ -280,4 +280,40 @@ library CoreLibrary {
             _amount
         );
     }
+
+    /**
+     * @dev enables a reserve to be used as collateral
+     * @param _self the reserve object
+     * !param _baseLTVasCollateral the loan to value of the asset when used as collateral
+     * !param _liquidationThreshold the threshold at which loans using this asset as collateral will be considered undercollateralized
+     * !param _liquidationBonus the bonus liquidators receive to liquidate this asset
+     **/
+    function enableAsCollateral(
+        ReserveData storage _self // TODO(liquidation): handle liquidation logic
+    ) external //        uint256 _baseLTVasCollateral,
+    //        uint256 _liquidationThreshold,
+    //        uint256 _liquidationBonus
+    {
+        require(
+            _self.usageAsCollateralEnabled == false,
+            "Reserve is already enabled as collateral"
+        );
+
+        _self.usageAsCollateralEnabled = true;
+        // TODO(liquidation): handle liquidation logic
+        //        _self.baseLTVasCollateral = _baseLTVasCollateral;
+        //        _self.liquidationThreshold = _liquidationThreshold;
+        //        _self.liquidationBonus = _liquidationBonus;
+
+        if (_self.lastLiquidityCumulativeIndex == 0)
+            _self.lastLiquidityCumulativeIndex = WadRayMath.ray();
+    }
+
+    /**
+     * @dev disables a reserve as collateral
+     * @param _self the reserve object
+     **/
+    function disableAsCollateral(ReserveData storage _self) external {
+        _self.usageAsCollateralEnabled = false;
+    }
 }
