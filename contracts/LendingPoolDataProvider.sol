@@ -197,9 +197,10 @@ contract LendingPoolDataProvider is Initializable {
         //add the current already borrowed amount to the amount requested to calculate the total collateral needed.
         uint256 collateralNeededInETH = _userCurrentBorrowBalanceTH
             .add(_userCurrentFeesETH)
-            .add(requestedBorrowAmountETH)
-            .mul(100)
-            .div(_userCurrentLtv); //LTV is calculated in percentage
+            .add(requestedBorrowAmountETH);
+        // TODO(liquidations): handle LTV
+        //            .mul(100)
+        //            .div(_userCurrentLtv); //LTV is calculated in percentage
 
         return collateralNeededInETH;
     }
