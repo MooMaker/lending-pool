@@ -115,6 +115,34 @@ contract LendingPoolCore is Initializable {
     }
 
     /**
+     * @dev updates the state of the core as a result of a redeem action
+     * @param _reserve the address of the reserve in which the redeem is happening
+     * @param _user the address of the the user redeeming
+     * @param _amountRedeemed the amount being redeemed
+     * @param _userRedeemedEverything true if the user is redeeming everything
+     **/
+    function updateStateOnRedeem(
+        address _reserve,
+        address _user,
+        uint256 _amountRedeemed,
+        bool _userRedeemedEverything
+    ) external onlyLendingPool {
+        //compound liquidity and variable borrow interests
+        reserves[_reserve].updateCumulativeIndexes();
+        updateReserveInterestRatesAndTimestampInternal(
+            _reserve,
+            0,
+            _amountRedeemed
+        );
+
+        // TODO: implement
+        //if user redeemed everything the useReserveAsCollateral flag is reset
+        //        if (_userRedeemedEverything) {
+        //            setUserUseReserveAsCollateral(_reserve, _user, false);
+        //        }
+    }
+
+    /**
      * @dev gets the normalized income of the reserve. a value of 1e27 means there is no income. A value of 2e27 means there
      * there has been 100% income.
      * @param _reserve the reserve address
@@ -210,6 +238,26 @@ contract LendingPoolCore is Initializable {
                 );
                 require(result, "Transfer of ETH failed");
             }
+        }
+    }
+
+    /**
+     * @dev transfers to the user a specific amount from the reserve.
+     * @param _reserve the address of the reserve where the transfer is happening
+     * @param _user the address of the user receiving the transfer
+     * @param _amount the amount being transferred
+     **/
+    function transferToUser(
+        address _reserve,
+        address payable _user,
+        uint256 _amount
+    ) external onlyLendingPool {
+        if (_reserve != EthAddressLib.ethAddress()) {
+            IERC20 reserveToken = IERC20(_reserve);
+            SafeERC20.safeTransfer(reserveToken, _user, _amount);
+        } else {
+            (bool result, ) = _user.call{value: _amount, gas: 50000}("");
+            require(result, "Transfer of ETH failed");
         }
     }
 

@@ -14,6 +14,8 @@ contract AToken is ERC20Wrapper {
     using SafeMath for uint256;
     using WadRayMath for uint256;
 
+    //    uint256 public constant UINT_MAX_VALUE = uint256(-1);
+
     AddressesProvider public addressesProvider;
 
     address public underlyingAssetAddress;
@@ -109,6 +111,73 @@ contract AToken is ERC20Wrapper {
         //                .sub(redirectedBalance)
         //            );
         //        }
+    }
+
+    /**
+     * @dev redeems aToken for the underlying asset
+     * @param _amount the amount being redeemed
+     **/
+    function redeem(uint256 _amount) external {
+        require(_amount > 0, "Amount to redeem needs to be > 0");
+
+        //cumulates the balance of the user
+        (
+            ,
+            uint256 currentBalance,
+            uint256 balanceIncrease,
+            uint256 index
+        ) = cumulateBalanceInternal(msg.sender);
+
+        uint256 amountToRedeem = _amount;
+
+        //if amount is equal to uint(-1), the user wants to redeem everything
+        //        if (_amount == UINT_MAX_VALUE) {
+        //            amountToRedeem = currentBalance;
+        //        }
+
+        require(
+            amountToRedeem <= currentBalance,
+            "User cannot redeem more than the available balance"
+        );
+
+        //        //check that the user is allowed to redeem the amount
+        //        require(
+        //            isTransferAllowed(msg.sender, amountToRedeem),
+        //            "Transfer cannot be allowed."
+        //        );
+        //
+        //        //if the user is redirecting his interest towards someone else,
+        //        //we update the redirected balance of the redirection address by adding the accrued interest,
+        //        //and removing the amount to redeem
+        //        updateRedirectedBalanceOfRedirectionAddressInternal(
+        //            msg.sender,
+        //            balanceIncrease,
+        //            amountToRedeem
+        //        );
+        //
+        //        // burns tokens equivalent to the amount requested
+        //        _burn(msg.sender, amountToRedeem);
+        //
+        //        bool userIndexReset = false;
+        //        //reset the user data if the remaining balance is 0
+        //        if (currentBalance.sub(amountToRedeem) == 0) {
+        //            userIndexReset = resetDataOnZeroBalanceInternal(msg.sender);
+        //        }
+        //
+        //        // executes redeem of the underlying asset
+        //        pool.redeemUnderlying(
+        //            underlyingAssetAddress,
+        //            msg.sender,
+        //            amountToRedeem,
+        //            currentBalance.sub(amountToRedeem)
+        //        );
+
+        //        emit Redeem(
+        //            msg.sender,
+        //            amountToRedeem,
+        //            balanceIncrease,
+        //            userIndexReset ? 0 : index
+        //        );
     }
 
     /**
@@ -210,4 +279,18 @@ contract AToken is ERC20Wrapper {
     function principalBalanceOf(address _user) external view returns (uint256) {
         return super.balanceOf(_user);
     }
+
+    /**
+     * @dev Used to validate transfers before actually executing them.
+     * @param _user address of the user to check
+     * @param _amount the amount to check
+     * @return true if the _user can transfer _amount, false otherwise
+     **/
+    //    function isTransferAllowed(
+    //        address _user,
+    //        uint256 _amount
+    //    ) public view returns (bool) {
+    //         TODO: use dataProvider
+    //                return dataProvider.balanceDecreaseAllowed(underlyingAssetAddress, _user, _amount);
+    //    }
 }
