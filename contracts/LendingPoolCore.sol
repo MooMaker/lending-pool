@@ -89,19 +89,16 @@ contract LendingPoolCore is Initializable {
     /**
      * @dev updates the state of the core as a result of a deposit action
      * @param _reserve the address of the reserve in which the deposit is happening
-     * !param _user the address of the the user depositing
+     * @param _user the address of the the user depositing
      * @param _amount the amount being deposited
-     * !param _isFirstDeposit true if the user is depositing for the first time
+     * @param _isFirstDeposit true if the user is depositing for the first time
      **/
     function updateStateOnDeposit(
         address _reserve,
-        /* address _user, */
-        uint256 _amount
-    )
-        external
-        /* bool _isFirstDeposit */
-        onlyLendingPool
-    {
+        address _user,
+        uint256 _amount,
+        bool _isFirstDeposit
+    ) external onlyLendingPool {
         // As the time passes by, pool accrues some interest, and we want to know
         // total accrued interest since the last update:
         // - interest to be paid to the depositors
@@ -109,11 +106,10 @@ contract LendingPoolCore is Initializable {
         reserves[_reserve].updateCumulativeIndexes();
         updateReserveInterestRatesAndTimestampInternal(_reserve, _amount, 0);
 
-        // TODO: do we need it?
-        //        if (_isFirstDeposit) {
-        //            //if this is the first deposit of the user, we configure the deposit as enabled to be used as collateral
-        //            setUserUseReserveAsCollateral(_reserve, _user, true);
-        //        }
+        if (_isFirstDeposit) {
+            //if this is the first deposit of the user, we configure the deposit as enabled to be used as collateral
+            setUserUseReserveAsCollateral(_reserve, _user, true);
+        }
     }
 
     /**
@@ -229,6 +225,38 @@ contract LendingPoolCore is Initializable {
             reserve.lastLiquidityCumulativeIndex,
             reserve.lastVariableBorrowCumulativeIndex
         );
+    }
+
+    /**
+     * @dev enables or disables a reserve as collateral
+     * @param _reserve the address of the principal reserve where the user deposited
+     * @param _user the address of the depositor
+     * @param _useAsCollateral true if the depositor wants to use the reserve as collateral
+     **/
+    function setUserUseReserveAsCollateral(
+        address _reserve,
+        address _user,
+        bool _useAsCollateral
+    ) public onlyLendingPool {
+        CoreLibrary.UserReserveData storage user = usersReserveData[_user][
+            _reserve
+        ];
+        user.useAsCollateral = _useAsCollateral;
+    }
+
+    /**
+     * @param _reserve the address of the reserve for which the information is needed
+     * @param _user the address of the user for which the information is needed
+     * @return true if the user has chosen to use the reserve as collateral, false otherwise
+     **/
+    function isUserUseReserveAsCollateralEnabled(
+        address _reserve,
+        address _user
+    ) external view returns (bool) {
+        CoreLibrary.UserReserveData storage user = usersReserveData[_user][
+            _reserve
+        ];
+        return user.useAsCollateral;
     }
 
     /**

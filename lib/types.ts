@@ -31,7 +31,7 @@ export type UserReserveData = {
   originationFee: bigint;
   variableBorrowIndex: BigNumber;
   lastUpdateTimestamp: bigint;
-  // usageAsCollateralEnabled: Boolean
+  usageAsCollateralEnabled: boolean;
   walletBalance: bigint;
   currentBorrowBalance: bigint;
   [key: string]: bigint | string | boolean | BigNumber;

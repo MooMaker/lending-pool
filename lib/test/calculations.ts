@@ -59,17 +59,17 @@ export const calcExpectedUserDataAfterDeposit = (
   expectedUserData.currentATokenBalance =
     userDataBeforeAction.currentATokenBalance + amountDeposited;
 
-  // TODO(usageAsCollateralEnabled) restore
-  // if (userDataBeforeAction.currentATokenBalance === 0n) {
-  //   expectedUserData.usageAsCollateralEnabled = true;
-  // } else {
-  //   //if user is redeeming everything, usageAsCollateralEnabled must be false
-  //   if (expectedUserData.currentATokenBalance === 0n) {
-  //     expectedUserData.usageAsCollateralEnabled = false;
-  //   } else {
-  //     expectedUserData.usageAsCollateralEnabled = userDataBeforeAction.usageAsCollateralEnabled;
-  //   }
-  // }
+  if (userDataBeforeAction.currentATokenBalance === 0n) {
+    expectedUserData.usageAsCollateralEnabled = true;
+  } else {
+    //if user is redeeming everything, usageAsCollateralEnabled must be false
+    if (expectedUserData.currentATokenBalance === 0n) {
+      expectedUserData.usageAsCollateralEnabled = false;
+    } else {
+      expectedUserData.usageAsCollateralEnabled =
+        userDataBeforeAction.usageAsCollateralEnabled;
+    }
+  }
 
   expectedUserData.variableBorrowIndex =
     userDataBeforeAction.variableBorrowIndex;

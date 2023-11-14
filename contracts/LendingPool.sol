@@ -107,15 +107,16 @@ contract LendingPool is ReentrancyGuard, Initializable {
         // Locate the aToken to issue to user on deposit
         AToken aToken = AToken(core.getReserveATokenAddress(_reserve));
 
-        // TODO: do we need it?
-        //        bool isFirstDeposit = aToken.balanceOf(msg.sender) == 0;
+        bool isFirstDeposit = aToken.balanceOf(msg.sender) == 0;
 
         // Having in mind discrete nature of the blockchain processing, we need to update the state of the pool
         // as a result of one of the pool actions (deposit in this case) in order to calculate the correct accrued interest values
         // of the pool. They are going to be used on later stage to determine accrued interest for the user.
         core.updateStateOnDeposit(
             _reserve,
-            /* msg.sender ,*/ _amount /*, isFirstDeposit */
+            msg.sender,
+            _amount,
+            isFirstDeposit
         );
 
         // Minting AToken to user 1:1 with the specific exchange rate
@@ -193,15 +194,15 @@ contract LendingPool is ReentrancyGuard, Initializable {
         // TODO: remove?
         //cast the rateMode to coreLibrary.interestRateMode
         //        vars.rateMode = CoreLibrary.InterestRateMode(_interestRateMode);
-        //
+
         //check that the amount is available in the reserve
         vars.availableLiquidity = core.getReserveAvailableLiquidity(_reserve);
-        //
+
         require(
             vars.availableLiquidity >= _amount,
             "There is not enough liquidity available in the reserve"
         );
-        //
+
         (
             ,
             vars.userCollateralBalanceETH,
@@ -335,10 +336,9 @@ contract LendingPool is ReentrancyGuard, Initializable {
             uint256 liquidityRate,
             uint256 originationFee,
             uint256 variableBorrowIndex,
-            uint256 lastUpdateTimestamp
+            uint256 lastUpdateTimestamp,
+            bool usageAsCollateralEnabled
         )
-    // TODO: do we need it?
-    // bool usageAsCollateralEnabled
     {
         // TODO: consider using data provider
         //        return dataProvider.getUserReserveData(_reserve, _user);
@@ -365,7 +365,10 @@ contract LendingPool is ReentrancyGuard, Initializable {
             _user
         );
         lastUpdateTimestamp = core.getUserLastUpdate(_reserve, _user);
-        //        usageAsCollateralEnabled = core.isUserUseReserveAsCollateralEnabled(_reserve, _user);
+        usageAsCollateralEnabled = core.isUserUseReserveAsCollateralEnabled(
+            _reserve,
+            _user
+        );
     }
 
     /**

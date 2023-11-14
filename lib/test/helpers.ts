@@ -143,7 +143,7 @@ export const getUserData = async (
       userData.variableBorrowIndex.toString(),
     ),
     lastUpdateTimestamp: userData.lastUpdateTimestamp,
-    // usageAsCollateralEnabled: userData.usageAsCollateralEnabled,
+    usageAsCollateralEnabled: userData.usageAsCollateralEnabled,
     walletBalance,
   };
 };
