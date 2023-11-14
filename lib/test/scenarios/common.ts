@@ -8,9 +8,14 @@ import {
   LendingPoolCore,
 } from "../../../typechain-types";
 import { getTokenListForNetwork } from "../../utils/token";
-import { TOKEN_DECIMALS } from "../../constants/tokens";
+import {
+  MAINNET_ADDRESSES,
+  SYMBOLS,
+  TOKEN_DECIMALS,
+} from "../../constants/tokens";
 import { ATokenInfo } from "../../../scripts/2-token-actions/200_deploy_reserve_atokens";
 import { STRATEGY_VOLATILE_ONE } from "../../constants/reserves";
+import { CHAINLINK_ETH_PRICE_DATA_FEEDS } from "../../constants/oracles";
 
 export type TokenSymbol = string;
 export type TokenAddress = string;
@@ -55,7 +60,7 @@ export async function setupContracts(): Promise<{
   aTokensPerAddress: Map<string, AToken>;
   interestRateStrategies: Map<string, DefaultReserveInterestRateStrategy>;
 }> {
-  const deploy = async () => {
+  const deployContracts = async () => {
     const addressesProviderFactory = await hre.ethers.getContractFactory(
       "AddressesProvider",
     );
@@ -71,14 +76,61 @@ export async function setupContracts(): Promise<{
     );
     const lendingPoolCore = await lendingPoolCoreFactory.deploy();
 
+    const lendingPoolDataProviderFactory = await hre.ethers.getContractFactory(
+      "LendingPoolDataProvider",
+    );
+    const lendingPoolDataProvider =
+      await lendingPoolDataProviderFactory.deploy();
+
     return {
       addressesProvider,
       lendingPool,
       lendingPoolCore,
+      lendingPoolDataProvider,
     };
   };
 
-  const { addressesProvider, lendingPool, lendingPoolCore } = await deploy();
+  const {
+    addressesProvider,
+    lendingPool,
+    lendingPoolCore,
+    lendingPoolDataProvider,
+  } = await deployContracts();
+
+  const deployChainlinkPriceOracle = async () => {
+    const daiAddress = MAINNET_ADDRESSES.get(SYMBOLS.DAI);
+    if (!daiAddress) {
+      throw new Error("Address for DAI is not found.");
+    }
+
+    const daiEthFeedAddress = CHAINLINK_ETH_PRICE_DATA_FEEDS.MAINNET.get(
+      SYMBOLS.DAI,
+    );
+    if (!daiEthFeedAddress) {
+      throw new Error("Address for DAI/ETH price feed is not found.");
+    }
+
+    const usdcAddress = MAINNET_ADDRESSES.get(SYMBOLS.USDC);
+    if (!usdcAddress) {
+      throw new Error("Address for USDC is not found.");
+    }
+
+    const usdcEthFeedAddress = CHAINLINK_ETH_PRICE_DATA_FEEDS.MAINNET.get(
+      SYMBOLS.USDC,
+    );
+    if (!usdcEthFeedAddress) {
+      throw new Error("Address for USDC/ETH price feed is not found.");
+    }
+
+    const chainLinkProxyPriceProviderFactory =
+      await hre.ethers.getContractFactory("ChainLinkProxyPriceProvider");
+    return chainLinkProxyPriceProviderFactory.deploy(
+      [daiAddress, usdcAddress],
+      [daiEthFeedAddress, usdcEthFeedAddress],
+    );
+  };
+
+  const chainLinkProxyPriceProvider = await deployChainlinkPriceOracle();
 
   const setup = async () => {
     // Setup addresses provider
@@ -86,12 +138,21 @@ export async function setupContracts(): Promise<{
       await lendingPoolCore.getAddress(),
     );
     await addressesProvider.setLendingPoolImpl(await lendingPool.getAddress());
+    await addressesProvider.setLendingPoolDataProviderImpl(
+      await lendingPoolDataProvider.getAddress(),
+    );
+    await addressesProvider.setPriceOracle(
+      await chainLinkProxyPriceProvider.getAddress(),
+    );
 
     // Initialize lending pool core
     await lendingPoolCore.initialize(addressesProvider);
 
     // Initialize lending pool
     await lendingPool.initialize(addressesProvider);
+
+    // Initialize data provider
+    await lendingPoolDataProvider.initialize(addressesProvider);
   };
 
   await setup();
