@@ -27,7 +27,7 @@ library CoreLibrary {
         //        uint256 stableBorrowRate;
         uint40 lastUpdateTimestamp;
         //defines if a specific deposit should or not be used as a collateral in borrows
-        //        bool useAsCollateral;
+        bool useAsCollateral;
     }
 
     struct ReserveData {
@@ -43,6 +43,10 @@ library CoreLibrary {
         uint256 totalBorrowsVariable;
         //the decimals of the reserve asset
         uint256 decimals;
+        //the ltv of the reserve. Expressed in percentage (0-100)
+        uint256 baseLTVasCollateral;
+        //the liquidation threshold of the reserve. Expressed in percentage (0-100)
+        uint256 liquidationThreshold;
         /**
          * @dev address of the interest rate strategy contract
          **/
@@ -52,6 +56,8 @@ library CoreLibrary {
          **/
         address aTokenAddress;
         uint40 lastUpdateTimestamp;
+        // usageAsCollateralEnabled = true means users can use this reserve as collateral
+        bool usageAsCollateralEnabled;
         // isActive = true means the reserve has been activated and properly configured
         bool isActive;
     }
@@ -241,5 +247,37 @@ library CoreLibrary {
         }
 
         return compoundedBalance;
+    }
+
+    /**
+     * @dev increases the total borrows at a variable rate
+     * @param _reserve the reserve object
+     * @param _amount the amount to add to the total borrows variable
+     **/
+    function increaseTotalBorrowsVariable(
+        ReserveData storage _reserve,
+        uint256 _amount
+    ) internal {
+        _reserve.totalBorrowsVariable = _reserve.totalBorrowsVariable.add(
+            _amount
+        );
+    }
+
+    /**
+     * @dev decreases the total borrows at a variable rate
+     * @param _reserve the reserve object
+     * @param _amount the amount to substract to the total borrows variable
+     **/
+    function decreaseTotalBorrowsVariable(
+        ReserveData storage _reserve,
+        uint256 _amount
+    ) internal {
+        require(
+            _reserve.totalBorrowsVariable >= _amount,
+            "The amount that is being subtracted from the variable total borrows is incorrect"
+        );
+        _reserve.totalBorrowsVariable = _reserve.totalBorrowsVariable.sub(
+            _amount
+        );
     }
 }

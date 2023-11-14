@@ -8,12 +8,14 @@ import "./configuration/AddressesProvider.sol";
 import "./libraries/CoreLibrary.sol";
 import "./libraries/EthAddressLib.sol";
 import "./interfaces/IReserveInterestRateStrategy.sol";
+import "./token/AToken.sol";
 
 contract LendingPoolCore is Initializable {
     using SafeMath for uint256;
     using WadRayMath for uint256;
 
     using CoreLibrary for CoreLibrary.ReserveData;
+    using CoreLibrary for CoreLibrary.UserReserveData;
 
     AddressesProvider public addressesProvider;
 
@@ -115,6 +117,56 @@ contract LendingPoolCore is Initializable {
     }
 
     /**
+     * @dev updates the state of the core as a consequence of a borrow action.
+     * @param _reserve the address of the reserve on which the user is borrowing
+     * @param _user the address of the borrower
+     * @param _amountBorrowed the new amount borrowed
+     * @param _borrowFee the fee on the amount borrowed
+     * @param _rateMode the borrow rate mode (stable, variable)
+     * @return the new borrow rate for the user
+     **/
+    function updateStateOnBorrow(
+        address _reserve,
+        address _user,
+        uint256 _amountBorrowed,
+        uint256 _borrowFee,
+        CoreLibrary.InterestRateMode _rateMode
+    ) external onlyLendingPool returns (uint256, uint256) {
+        // getting the previous borrow data of the user
+        (
+            uint256 principalBorrowBalance,
+            ,
+            uint256 balanceIncrease
+        ) = getUserBorrowBalances(_reserve, _user);
+
+        updateReserveStateOnBorrowInternal(
+            _reserve,
+            _user,
+            principalBorrowBalance,
+            balanceIncrease,
+            _amountBorrowed,
+            _rateMode
+        );
+
+        updateUserStateOnBorrowInternal(
+            _reserve,
+            _user,
+            _amountBorrowed,
+            balanceIncrease,
+            _borrowFee,
+            _rateMode
+        );
+
+        updateReserveInterestRatesAndTimestampInternal(
+            _reserve,
+            0,
+            _amountBorrowed
+        );
+
+        return (getUserCurrentBorrowRate(_reserve, _user), balanceIncrease);
+    }
+
+    /**
      * @dev gets the normalized income of the reserve. a value of 1e27 means there is no income. A value of 2e27 means there
      * there has been 100% income.
      * @param _reserve the reserve address
@@ -125,6 +177,13 @@ contract LendingPoolCore is Initializable {
     ) external view returns (uint256) {
         CoreLibrary.ReserveData storage reserve = reserves[_reserve];
         return reserve.getNormalizedIncome();
+    }
+
+    /**
+     * @return the array of reserves configured on the core
+     **/
+    function getReserves() external view returns (address[] memory) {
+        return reservesList;
     }
 
     /**
@@ -170,6 +229,113 @@ contract LendingPoolCore is Initializable {
             reserve.lastLiquidityCumulativeIndex,
             reserve.lastVariableBorrowCumulativeIndex
         );
+    }
+
+    /**
+     * @dev updates the state of a reserve as a consequence of a borrow action.
+     * @param _reserve the address of the reserve on which the user is borrowing
+     * @param _user the address of the borrower
+     * @param _principalBorrowBalance the previous borrow balance of the borrower before the action
+     * @param _balanceIncrease the accrued interest of the user on the previous borrowed amount
+     * @param _amountBorrowed the new amount borrowed
+     * @param _rateMode the borrow rate mode (stable, variable)
+     **/
+
+    function updateReserveStateOnBorrowInternal(
+        address _reserve,
+        address _user,
+        uint256 _principalBorrowBalance,
+        uint256 _balanceIncrease,
+        uint256 _amountBorrowed,
+        CoreLibrary.InterestRateMode _rateMode
+    ) internal {
+        reserves[_reserve].updateCumulativeIndexes();
+
+        //increasing reserve total borrows to account for the new borrow balance of the user
+
+        updateReserveTotalBorrowsByRateModeInternal(
+            _reserve,
+            _user,
+            _principalBorrowBalance,
+            _balanceIncrease,
+            _amountBorrowed,
+            _rateMode
+        );
+    }
+
+    /**
+     * @dev updates the state of the user as a consequence of a stable rate rebalance
+     * @param _reserve the address of the principal reserve where the user borrowed
+     * @param _user the address of the borrower
+     * @param _balanceIncrease the accrued interest on the borrowed amount
+     * @param _amountBorrowed the accrued interest on the borrowed amount
+     **/
+    function updateReserveTotalBorrowsByRateModeInternal(
+        address _reserve,
+        address _user,
+        uint256 _principalBalance,
+        uint256 _balanceIncrease,
+        uint256 _amountBorrowed,
+        CoreLibrary.InterestRateMode _newBorrowRateMode
+    ) internal {
+        CoreLibrary.InterestRateMode previousRateMode = getUserCurrentBorrowRateMode(
+                _reserve,
+                _user
+            );
+        CoreLibrary.ReserveData storage reserve = reserves[_reserve];
+
+        reserve.decreaseTotalBorrowsVariable(_principalBalance);
+
+        uint256 newPrincipalAmount = _principalBalance
+            .add(_balanceIncrease)
+            .add(_amountBorrowed);
+        if (_newBorrowRateMode == CoreLibrary.InterestRateMode.VARIABLE) {
+            reserve.increaseTotalBorrowsVariable(newPrincipalAmount);
+        } else {
+            revert("Invalid new borrow rate mode");
+        }
+    }
+
+    /**
+     * @dev updates the state of a user as a consequence of a borrow action.
+     * @param _reserve the address of the reserve on which the user is borrowing
+     * @param _user the address of the borrower
+     * @param _amountBorrowed the amount borrowed
+     * @param _balanceIncrease the accrued interest of the user on the previous borrowed amount
+     * @param _rateMode the borrow rate mode (stable, variable)
+     **/
+
+    function updateUserStateOnBorrowInternal(
+        address _reserve,
+        address _user,
+        uint256 _amountBorrowed,
+        uint256 _balanceIncrease,
+        uint256 _fee,
+        CoreLibrary.InterestRateMode _rateMode
+    ) internal {
+        CoreLibrary.ReserveData storage reserve = reserves[_reserve];
+        CoreLibrary.UserReserveData storage user = usersReserveData[_user][
+            _reserve
+        ];
+
+        if (_rateMode == CoreLibrary.InterestRateMode.VARIABLE) {
+            //variable
+            //reset the user stable rate, and store the new borrow index
+            //            user.stableBorrowRate = 0;
+            user.lastVariableBorrowCumulativeIndex = reserve
+                .lastVariableBorrowCumulativeIndex;
+        } else {
+            revert("Invalid borrow rate mode");
+        }
+        //increase the principal borrows and the origination fee
+        user.principalBorrowBalance = user
+            .principalBorrowBalance
+            .add(_amountBorrowed)
+            .add(_balanceIncrease);
+        user.originationFee = user.originationFee.add(_fee);
+
+        //solium-disable-next-line
+        user.lastUpdateTimestamp = uint40(block.timestamp);
     }
 
     /**
@@ -242,6 +408,102 @@ contract LendingPoolCore is Initializable {
     }
 
     /**
+     * @notice data access functions
+     **/
+
+    /**
+     * @dev returns the basic data (balances, fee accrued, reserve enabled/disabled as collateral)
+     * needed to calculate the global account data in the LendingPoolDataProvider
+     * @param _reserve the address of the reserve
+     * @param _user the address of the user
+     * @return the user deposited balance, the principal borrow balance, the fee, and if the reserve is enabled as collateral or not
+     **/
+    function getUserBasicReserveData(
+        address _reserve,
+        address _user
+    ) external view returns (uint256, uint256, uint256, bool) {
+        CoreLibrary.ReserveData storage reserve = reserves[_reserve];
+        CoreLibrary.UserReserveData storage user = usersReserveData[_user][
+            _reserve
+        ];
+
+        uint256 underlyingBalance = getUserUnderlyingAssetBalance(
+            _reserve,
+            _user
+        );
+
+        if (user.principalBorrowBalance == 0) {
+            return (underlyingBalance, 0, 0, user.useAsCollateral);
+        }
+
+        return (
+            underlyingBalance,
+            user.getCompoundedBorrowBalance(reserve),
+            user.originationFee,
+            user.useAsCollateral
+        );
+    }
+
+    /**
+     * @dev gets the current borrow rate of the user
+     * @param _reserve the address of the reserve for which the information is needed
+     * @param _user the address of the user for which the information is needed
+     * @return the borrow rate for the user,
+     **/
+    function getUserCurrentBorrowRate(
+        address _reserve,
+        address _user
+    ) internal view returns (uint256) {
+        CoreLibrary.InterestRateMode rateMode = getUserCurrentBorrowRateMode(
+            _reserve,
+            _user
+        );
+
+        if (rateMode == CoreLibrary.InterestRateMode.NONE) {
+            return 0;
+        }
+
+        return reserves[_reserve].currentVariableBorrowRate;
+    }
+
+    /**
+     * @dev users with no loans in progress have NONE as borrow rate mode
+     * @param _reserve the address of the reserve for which the information is needed
+     * @param _user the address of the user for which the information is needed
+     * @return the borrow rate mode for the user,
+     **/
+
+    function getUserCurrentBorrowRateMode(
+        address _reserve,
+        address _user
+    ) public view returns (CoreLibrary.InterestRateMode) {
+        CoreLibrary.UserReserveData storage user = usersReserveData[_user][
+            _reserve
+        ];
+
+        if (user.principalBorrowBalance == 0) {
+            return CoreLibrary.InterestRateMode.NONE;
+        }
+
+        return CoreLibrary.InterestRateMode.VARIABLE;
+    }
+
+    /**
+     * @dev gets the underlying asset balance of a user based on the corresponding aToken balance.
+     * @param _reserve the reserve address
+     * @param _user the user address
+     * @return the underlying deposit balance of the user
+     **/
+
+    function getUserUnderlyingAssetBalance(
+        address _reserve,
+        address _user
+    ) public view returns (uint256) {
+        AToken aToken = AToken(reserves[_reserve].aTokenAddress);
+        return aToken.balanceOf(_user);
+    }
+
+    /**
      * @dev gets the total liquidity in the reserve. The total liquidity is the balance of the core contract + total borrows
      * @param _reserve the reserve address
      * @return the total liquidity
@@ -254,6 +516,49 @@ contract LendingPoolCore is Initializable {
             getReserveAvailableLiquidity(_reserve).add(
                 reserve.getTotalBorrows()
             );
+    }
+
+    /**
+     * @dev this function aggregates the configuration parameters of the reserve.
+     * It's used in the LendingPoolDataProvider specifically to save gas, and avoid
+     * multiple external contract calls to fetch the same data.
+     * @param _reserve the reserve address
+     * @return the reserve decimals
+     * @return the base ltv as collateral
+     * @return the liquidation threshold
+     * @return if the reserve is used as collateral or not
+     **/
+    function getReserveConfiguration(
+        address _reserve
+    ) external view returns (uint256, uint256, uint256, bool) {
+        uint256 decimals;
+        uint256 baseLTVasCollateral;
+        uint256 liquidationThreshold;
+        bool usageAsCollateralEnabled;
+
+        CoreLibrary.ReserveData storage reserve = reserves[_reserve];
+        decimals = reserve.decimals;
+        baseLTVasCollateral = reserve.baseLTVasCollateral;
+        liquidationThreshold = reserve.liquidationThreshold;
+        usageAsCollateralEnabled = reserve.usageAsCollateralEnabled;
+
+        return (
+            decimals,
+            baseLTVasCollateral,
+            liquidationThreshold,
+            usageAsCollateralEnabled
+        );
+    }
+
+    /**
+     * @dev returns the decimals of the reserve
+     * @param _reserve the reserve address
+     * @return the reserve decimals
+     **/
+    function getReserveDecimals(
+        address _reserve
+    ) external view returns (uint256) {
+        return reserves[_reserve].decimals;
     }
 
     /**
@@ -489,5 +794,25 @@ contract LendingPoolCore is Initializable {
             _reserve
         ];
         timestamp = user.lastUpdateTimestamp;
+    }
+
+    /**
+     * @dev transfers to the user a specific amount from the reserve.
+     * @param _reserve the address of the reserve where the transfer is happening
+     * @param _user the address of the user receiving the transfer
+     * @param _amount the amount being transferred
+     **/
+    function transferToUser(
+        address _reserve,
+        address payable _user,
+        uint256 _amount
+    ) external onlyLendingPool {
+        if (_reserve != EthAddressLib.ethAddress()) {
+            IERC20 reserveToken = IERC20(_reserve);
+            SafeERC20.safeTransfer(reserveToken, _user, _amount);
+        } else {
+            (bool result, ) = _user.call{value: _amount, gas: 50000}("");
+            require(result, "Transfer of ETH failed");
+        }
     }
 }

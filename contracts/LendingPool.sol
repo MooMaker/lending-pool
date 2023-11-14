@@ -7,9 +7,12 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "./configuration/AddressesProvider.sol";
 import "./token/AToken.sol";
 import "./LendingPoolCore.sol";
+import {CoreLibrary} from "./libraries/CoreLibrary.sol";
+import {LendingPoolDataProvider} from "./LendingPoolDataProvider.sol";
 
 contract LendingPool is ReentrancyGuard, Initializable {
     AddressesProvider public addressesProvider;
+    LendingPoolDataProvider public dataProvider;
     LendingPoolCore public core;
 
     /**
@@ -23,6 +26,28 @@ contract LendingPool is ReentrancyGuard, Initializable {
         address indexed _reserve,
         address indexed _user,
         uint256 _amount,
+        uint256 _timestamp
+    );
+
+    /**
+     * @dev emitted on borrow
+     * @param _reserve the address of the reserve
+     * @param _user the address of the user
+     * @param _amount the amount to be deposited
+     * @param _borrowRate the rate at which the user has borrowed
+     * @param _originationFee the origination fee to be paid by the user
+     * @param _borrowBalanceIncrease the balance increase since the last borrow, 0 if it's the first time borrowing
+     * @param _referral the referral number of the action
+     * @param _timestamp the timestamp of the action
+     **/
+    event Borrow(
+        address indexed _reserve,
+        address indexed _user,
+        uint256 _amount,
+        uint256 _borrowRate,
+        uint256 _originationFee,
+        uint256 _borrowBalanceIncrease,
+        uint16 indexed _referral,
         uint256 _timestamp
     );
 
@@ -55,6 +80,9 @@ contract LendingPool is ReentrancyGuard, Initializable {
         AddressesProvider _addressesProvider
     ) public initializer {
         addressesProvider = _addressesProvider;
+        dataProvider = LendingPoolDataProvider(
+            addressesProvider.getLendingPoolDataProvider()
+        );
         core = LendingPoolCore(addressesProvider.getLendingPoolCore());
     }
 
@@ -103,6 +131,151 @@ contract LendingPool is ReentrancyGuard, Initializable {
 
         //solium-disable-next-line
         emit Deposit(_reserve, msg.sender, _amount, block.timestamp);
+    }
+
+    /**
+     * @dev data structures for local computations in the borrow() method.
+     */
+    struct BorrowLocalVars {
+        uint256 principalBorrowBalance;
+        uint256 currentLtv;
+        uint256 currentLiquidationThreshold;
+        //        uint256 borrowFee;
+        uint256 requestedBorrowAmountETH;
+        uint256 amountOfCollateralNeededETH;
+        uint256 userCollateralBalanceETH;
+        uint256 userBorrowBalanceETH;
+        uint256 userTotalFeesETH;
+        uint256 borrowBalanceIncrease;
+        uint256 currentReserveStableRate;
+        uint256 availableLiquidity;
+        uint256 reserveDecimals;
+        uint256 finalUserBorrowRate;
+        //        CoreLibrary.InterestRateMode rateMode;
+        //        bool healthFactorBelowThreshold;
+    }
+
+    /**
+     * @dev Allows users to borrow a specific amount of the reserve currency, provided that the borrower
+     * already deposited enough collateral.
+     * @param _reserve the address of the reserve
+     * @param _amount the amount to be borrowed
+     **/
+    function borrow(
+        address _reserve,
+        uint256 _amount,
+        //        uint256 _interestRateMode,
+        uint16 _referralCode
+    )
+        external
+        nonReentrant
+        onlyActiveReserve(_reserve)
+        // TODO: add
+        //        onlyUnfreezedReserve(_reserve)
+        onlyAmountGreaterThanZero(_amount)
+    {
+        // Usage of a memory struct of vars to avoid "Stack too deep" errors due to local variables
+        BorrowLocalVars memory vars;
+
+        // TODO: add this check
+        //check that the reserve is enabled for borrowing
+        //        require(core.isReserveBorrowingEnabled(_reserve), "Reserve is not enabled for borrowing");
+
+        // TODO: remove since we only support variable interest rate mode?
+        //        //validate interest rate mode
+        //                require(
+        //            uint256(CoreLibrary.InterestRateMode.VARIABLE) == _interestRateMode ||
+        //            uint256(CoreLibrary.InterestRateMode.STABLE) == _interestRateMode,
+        //            "Invalid interest rate mode selected"
+        //        );
+        //
+
+        // TODO: remove?
+        //cast the rateMode to coreLibrary.interestRateMode
+        //        vars.rateMode = CoreLibrary.InterestRateMode(_interestRateMode);
+        //
+        //check that the amount is available in the reserve
+        vars.availableLiquidity = core.getReserveAvailableLiquidity(_reserve);
+        //
+        require(
+            vars.availableLiquidity >= _amount,
+            "There is not enough liquidity available in the reserve"
+        );
+        //
+        (
+            ,
+            vars.userCollateralBalanceETH,
+            vars.userBorrowBalanceETH,
+            vars.userTotalFeesETH,
+            vars.currentLtv,
+            vars.currentLiquidationThreshold
+            //                ,
+            //                    vars.healthFactorBelowThreshold
+        ) = dataProvider.calculateUserGlobalData(msg.sender);
+
+        require(
+            vars.userCollateralBalanceETH > 0,
+            "The collateral balance is 0"
+        );
+
+        // TODO: implement
+        //        require(
+        //            !vars.healthFactorBelowThreshold,
+        //            "The borrower can already be liquidated so he cannot borrow more"
+        //        );
+        //
+
+        // TODO: implement
+        //calculating fees
+        //        vars.borrowFee = feeProvider.calculateLoanOriginationFee(
+        //            msg.sender,
+        //            _amount
+        //        );
+        //
+        //        require(vars.borrowFee > 0, "The amount to borrow is too small");
+        //
+        vars.amountOfCollateralNeededETH = dataProvider
+            .calculateCollateralNeededInETH(
+                _reserve,
+                _amount,
+                // TODO: pass fee
+                /* vars.borrowFee */ 0,
+                vars.userBorrowBalanceETH,
+                vars.userTotalFeesETH,
+                vars.currentLtv
+            );
+
+        require(
+            vars.amountOfCollateralNeededETH <= vars.userCollateralBalanceETH,
+            "There is not enough collateral to cover a new borrow"
+        );
+
+        //        //all conditions passed - borrow is accepted
+        (vars.finalUserBorrowRate, vars.borrowBalanceIncrease) = core
+            .updateStateOnBorrow(
+                _reserve,
+                msg.sender,
+                _amount,
+                // TODO: pass fee
+                /* vars.borrowFee */ 0,
+                CoreLibrary.InterestRateMode.VARIABLE
+            );
+
+        //if we reached this point, we can transfer
+        core.transferToUser(_reserve, payable(msg.sender), _amount);
+
+        emit Borrow(
+            _reserve,
+            msg.sender,
+            _amount,
+            vars.finalUserBorrowRate,
+            // TODO: add borrow fee
+            /* vars.borrowFee */ 0,
+            vars.borrowBalanceIncrease,
+            _referralCode,
+            //solium-disable-next-line
+            block.timestamp
+        );
     }
 
     function getReserveData(
