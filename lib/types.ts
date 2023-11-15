@@ -28,7 +28,7 @@ export type UserReserveData = {
   principalBorrowBalance: bigint;
   borrowRate: BigNumber;
   liquidityRate: BigNumber;
-  originationFee: BigNumber;
+  originationFee: bigint;
   variableBorrowIndex: BigNumber;
   lastUpdateTimestamp: bigint;
   usageAsCollateralEnabled: boolean;

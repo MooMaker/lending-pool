@@ -12,8 +12,16 @@ export type BorrowActionArgs = {
   timeTravel?: string;
 };
 
+export type RepayActionArgs = {
+  reserve: string;
+  amount: string;
+  user: string;
+  onBehalfOf: string;
+  sendValue?: string;
+};
+
 // TODO: add more action args types with OR
-type ActionArgs = DepositActionArgs | BorrowActionArgs;
+type ActionArgs = DepositActionArgs | BorrowActionArgs | RepayActionArgs;
 
 export type Action = {
   name: string;

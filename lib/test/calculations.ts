@@ -13,7 +13,7 @@ import {
   InterestRateStrategy,
   OPTIMAL_UTILIZATION_RATE,
 } from "../constants/reserves";
-import { SECONDS_PER_YEAR } from "../constants/common";
+import { MAX_UINT_VALUE, SECONDS_PER_YEAR } from "../constants/common";
 import { BigNumberZD } from "../utils/bignumber";
 
 type CalcConfig = {
@@ -353,6 +353,80 @@ export const calcExpectedReserveDataAfterBorrow = (
   return expectedReserveData;
 };
 
+export const calcExpectedReserveDataAfterRepay = (
+  amountRepaid: bigint,
+  reserveDataBeforeAction: ReserveData,
+  userDataBeforeAction: UserReserveData,
+  txTimestamp: bigint,
+): ReserveData => {
+  const expectedReserveData: ReserveData = <ReserveData>{};
+
+  expectedReserveData.address = reserveDataBeforeAction.address;
+
+  const userCurrentBorrowBalance = calcExpectedCompoundedBorrowBalance(
+    userDataBeforeAction,
+    reserveDataBeforeAction,
+    txTimestamp,
+  );
+
+  const userBalanceIncrease =
+    userCurrentBorrowBalance - userDataBeforeAction.principalBorrowBalance;
+
+  expectedReserveData.totalLiquidity =
+    reserveDataBeforeAction.totalLiquidity + userBalanceIncrease;
+
+  //if amount repaid = MAX_UINT_AMOUNT, user is repaying everything
+  if (amountRepaid == MAX_UINT_VALUE) {
+    amountRepaid = userCurrentBorrowBalance;
+  } else {
+    amountRepaid =
+      userDataBeforeAction.originationFee > amountRepaid
+        ? 0n
+        : amountRepaid - userDataBeforeAction.originationFee;
+  }
+
+  if (amountRepaid === 0n) {
+    //user is only repaying part or all the utilization fee
+    expectedReserveData.availableLiquidity =
+      reserveDataBeforeAction.availableLiquidity;
+  } else {
+    expectedReserveData.availableLiquidity =
+      reserveDataBeforeAction.availableLiquidity + amountRepaid;
+  }
+
+  expectedReserveData.totalBorrowsVariable =
+    reserveDataBeforeAction.totalBorrowsVariable +
+    userBalanceIncrease -
+    amountRepaid;
+  expectedReserveData.totalBorrowsStable =
+    reserveDataBeforeAction.totalBorrowsStable;
+  expectedReserveData.averageStableBorrowRate =
+    reserveDataBeforeAction.averageStableBorrowRate;
+
+  expectedReserveData.utilizationRate = calcExpectedUtilizationRate(
+    expectedReserveData.totalBorrowsVariable,
+    expectedReserveData.totalLiquidity,
+  );
+
+  const { liquidityRate, variableBorrowRate } = calcExpectedInterestRates(
+    reserveDataBeforeAction.symbol,
+    expectedReserveData.utilizationRate,
+  );
+  expectedReserveData.liquidityRate = liquidityRate;
+  expectedReserveData.variableBorrowRate = variableBorrowRate;
+
+  expectedReserveData.liquidityIndex = calcExpectedLiquidityIndex(
+    reserveDataBeforeAction,
+    txTimestamp,
+  );
+  expectedReserveData.variableBorrowIndex = calcExpectedVariableBorrowIndex(
+    reserveDataBeforeAction,
+    txTimestamp,
+  );
+
+  return expectedReserveData;
+};
+
 export const calcExpectedUserDataAfterBorrow = (
   amountBorrowed: bigint,
   reserveDataBeforeAction: ReserveData,
@@ -402,7 +476,7 @@ export const calcExpectedUserDataAfterBorrow = (
   expectedUserData.liquidityRate = expectedDataAfterAction.liquidityRate;
 
   expectedUserData.originationFee =
-    userDataBeforeAction.originationFee.plus(originationFee);
+    userDataBeforeAction.originationFee + originationFee;
 
   expectedUserData.usageAsCollateralEnabled =
     userDataBeforeAction.usageAsCollateralEnabled;
@@ -432,6 +506,109 @@ export const calcExpectedUserDataAfterBorrow = (
   } else {
     expectedUserData.walletBalance =
       userDataBeforeAction.walletBalance + amountBorrowed;
+  }
+
+  return expectedUserData;
+};
+
+export const calcExpectedUserDataAfterRepay = (
+  totalRepaid: bigint,
+  reserveDataBeforeAction: ReserveData,
+  expectedDataAfterAction: ReserveData,
+  userDataBeforeAction: UserReserveData,
+  user: string,
+  onBehalfOf: string,
+  txTimestamp: bigint,
+  txCost: bigint,
+): UserReserveData => {
+  const expectedUserData = <UserReserveData>{};
+
+  const userCurrentBorrowBalance = calcExpectedCompoundedBorrowBalance(
+    userDataBeforeAction,
+    reserveDataBeforeAction,
+    txTimestamp,
+  );
+
+  const userBalanceIncrease =
+    userCurrentBorrowBalance - userDataBeforeAction.principalBorrowBalance;
+
+  if (totalRepaid === MAX_UINT_VALUE) {
+    //full repay in progress
+    totalRepaid =
+      userCurrentBorrowBalance + userDataBeforeAction.originationFee;
+    // .toFixed(0);
+  }
+
+  if (userDataBeforeAction.originationFee < totalRepaid) {
+    expectedUserData.originationFee = 0n;
+
+    const totalRepaidMinusFees =
+      totalRepaid - userDataBeforeAction.originationFee;
+
+    expectedUserData.principalBorrowBalance =
+      userDataBeforeAction.principalBorrowBalance +
+      userBalanceIncrease -
+      totalRepaidMinusFees;
+    expectedUserData.currentBorrowBalance =
+      userCurrentBorrowBalance - totalRepaidMinusFees;
+  } else {
+    expectedUserData.originationFee =
+      userDataBeforeAction.originationFee - totalRepaid;
+    expectedUserData.principalBorrowBalance = userCurrentBorrowBalance;
+    expectedUserData.currentBorrowBalance = userCurrentBorrowBalance;
+  }
+
+  if (expectedUserData.currentBorrowBalance === 0n) {
+    //user repaid everything
+    expectedUserData.borrowRate = new BigNumber("0");
+    // TODO(borrowRateMode): handle this?
+    // expectedUserData.borrowRateMode = RATEMODE_NONE;
+    expectedUserData.variableBorrowIndex = new BigNumber("0");
+  } else {
+    expectedUserData.borrowRate = expectedDataAfterAction.variableBorrowRate;
+    expectedUserData.variableBorrowIndex =
+      expectedDataAfterAction.variableBorrowIndex;
+    // TODO(borrowRateMode): handle this?
+    // expectedUserData.borrowRateMode = userDataBeforeAction.borrowRateMode;
+  }
+
+  expectedUserData.liquidityRate = expectedDataAfterAction.liquidityRate;
+
+  expectedUserData.usageAsCollateralEnabled =
+    userDataBeforeAction.usageAsCollateralEnabled;
+
+  expectedUserData.currentATokenBalance = calcExpectedATokenBalance(
+    reserveDataBeforeAction,
+    userDataBeforeAction,
+    txTimestamp,
+  );
+  expectedUserData.principalATokenBalance =
+    userDataBeforeAction.principalATokenBalance;
+  expectedUserData.redirectedBalance = userDataBeforeAction.redirectedBalance;
+  expectedUserData.interestRedirectionAddress =
+    userDataBeforeAction.interestRedirectionAddress;
+  expectedUserData.redirectionAddressRedirectedBalance =
+    userDataBeforeAction.redirectionAddressRedirectedBalance;
+  expectedUserData.currentATokenUserIndex = calcExpectedATokenUserIndex(
+    reserveDataBeforeAction,
+    expectedUserData.currentATokenBalance,
+    // TODO(redirects): handle?
+    // expectedUserData.redirectedBalance,
+    txTimestamp,
+  );
+
+  if (user === onBehalfOf) {
+    //if user repaid for himself, update the wallet balances
+    if (reserveDataBeforeAction.address === _config.ethereumAddress) {
+      expectedUserData.walletBalance =
+        userDataBeforeAction.walletBalance - txCost - totalRepaid;
+    } else {
+      expectedUserData.walletBalance =
+        userDataBeforeAction.walletBalance - totalRepaid;
+    }
+  } else {
+    //wallet balance didn't change
+    expectedUserData.walletBalance = userDataBeforeAction.walletBalance;
   }
 
   return expectedUserData;
@@ -509,10 +686,12 @@ const calcLinearInterest = (
   return cumulatedInterest;
 };
 
-const calcExpectedOriginationFee = (amount: bigint): BigNumber => {
-  return new BigNumber(amount.toString(10))
+const calcExpectedOriginationFee = (amount: bigint): bigint => {
+  const feeBN = new BigNumber(amount.toString(10))
     .multipliedBy(0.0025)
     .decimalPlaces(0, BigNumber.ROUND_DOWN);
+
+  return BigInt(feeBN.toString(10));
 };
 
 const calcExpectedUtilizationRate = (

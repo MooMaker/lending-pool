@@ -2,9 +2,10 @@ import {
   Action,
   BorrowActionArgs,
   DepositActionArgs,
+  RepayActionArgs,
   Story,
 } from "../../../test/scenario/types";
-import { approve, borrow, deposit, transfer } from "./actions";
+import { approve, borrow, deposit, repay, transfer } from "./actions";
 
 export const executeStory = async (story: Story, users: string[]) => {
   for (const action of story.actions) {
@@ -78,6 +79,36 @@ const executeAction = async (action: Action, users: string[]) => {
           amount,
           userAddress,
           timeTravel,
+          expected,
+          revertMessage,
+        );
+      }
+      break;
+
+    case "repay":
+      {
+        const { amount, sendValue } = action.args as RepayActionArgs;
+        let { onBehalfOf } = action.args as RepayActionArgs;
+
+        if (!amount || amount === "") {
+          throw `Invalid amount to repay into the ${reserve} reserve`;
+        }
+
+        if (!onBehalfOf || onBehalfOf === "") {
+          console.log(
+            "WARNING: No onBehalfOf specified for a repay action. Defaulting to the repayer address",
+          );
+          onBehalfOf = userAddress;
+        } else {
+          onBehalfOf = users[parseInt(onBehalfOf)];
+        }
+
+        await repay(
+          reserve,
+          amount,
+          userAddress,
+          onBehalfOf,
+          sendValue,
           expected,
           revertMessage,
         );

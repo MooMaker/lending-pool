@@ -49,41 +49,37 @@ export async function setupContracts(): Promise<{
   interestRateStrategies: Map<string, DefaultReserveInterestRateStrategy>;
 }> {
   const deployContracts = async () => {
-    const coreLibraryFactory = await hre.ethers.getContractFactory(
-      "CoreLibrary",
-    );
-    const coreLibrary = await coreLibraryFactory.deploy();
+    const coreLibrary = await hre.ethers
+      .getContractFactory("CoreLibrary")
+      .then((factory) => factory.deploy());
 
-    const addressesProviderFactory = await hre.ethers.getContractFactory(
-      "AddressesProvider",
-    );
-    const addressesProvider = await addressesProviderFactory.deploy();
+    const addressesProvider = await hre.ethers
+      .getContractFactory("AddressesProvider")
+      .then((factory) => factory.deploy());
 
-    const feeProviderFactory = await hre.ethers.getContractFactory(
-      "FeeProvider",
-    );
-    const feeProvider = await feeProviderFactory.deploy();
+    const feeProvider = await hre.ethers
+      .getContractFactory("FeeProvider")
+      .then((factory) => factory.deploy());
 
-    const lendingPoolFactory = await hre.ethers.getContractFactory(
-      "LendingPool",
-    );
-    const lendingPool = await lendingPoolFactory.deploy();
+    const tokenDistributor = await hre.ethers
+      .getContractFactory("TokenDistributor")
+      .then((factory) => factory.deploy());
 
-    const lendingPoolCoreFactory = await hre.ethers.getContractFactory(
-      "LendingPoolCore",
-      {
+    const lendingPool = await hre.ethers
+      .getContractFactory("LendingPool")
+      .then((factory) => factory.deploy());
+
+    const lendingPoolCore = await hre.ethers
+      .getContractFactory("LendingPoolCore", {
         libraries: {
           CoreLibrary: await coreLibrary.getAddress(),
         },
-      },
-    );
-    const lendingPoolCore = await lendingPoolCoreFactory.deploy();
+      })
+      .then((factory) => factory.deploy());
 
-    const lendingPoolDataProviderFactory = await hre.ethers.getContractFactory(
-      "LendingPoolDataProvider",
-    );
-    const lendingPoolDataProvider =
-      await lendingPoolDataProviderFactory.deploy();
+    const lendingPoolDataProvider = await hre.ethers
+      .getContractFactory("LendingPoolDataProvider")
+      .then((factory) => factory.deploy());
 
     return {
       addressesProvider,
@@ -91,6 +87,7 @@ export async function setupContracts(): Promise<{
       lendingPoolCore,
       lendingPoolDataProvider,
       feeProvider,
+      tokenDistributor,
     };
   };
 
@@ -100,6 +97,7 @@ export async function setupContracts(): Promise<{
     lendingPoolCore,
     lendingPoolDataProvider,
     feeProvider,
+    tokenDistributor,
   } = await deployContracts();
 
   const deployChainlinkPriceOracle = async () => {
@@ -161,6 +159,10 @@ export async function setupContracts(): Promise<{
 
     // Initialize fee provider
     await feeProvider.initialize(addressesProvider);
+
+    const [owner] = await hre.ethers.getSigners();
+    // Initialize token distributor with one beneficiary
+    await tokenDistributor.initialize([owner.address], [100]);
   };
 
   await setup();

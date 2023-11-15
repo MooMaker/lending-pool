@@ -177,7 +177,6 @@ library CoreLibrary {
         uint256 _rate,
         uint40 _lastUpdateTimestamp
     ) internal view returns (uint256) {
-        //solium-disable-next-line
         uint256 timeDifference = block.timestamp.sub(
             uint256(_lastUpdateTimestamp)
         );
@@ -290,10 +289,8 @@ library CoreLibrary {
      **/
     function enableAsCollateral(
         ReserveData storage _self,
-        uint256 _baseLTVasCollateral // TODO(liquidation): handle liquidation logic
-    ) external //        uint256 _liquidationThreshold,
-    //        uint256 _liquidationBonus
-    {
+        uint256 _baseLTVasCollateral // TODO(liquidation): handle liquidation logic //        uint256 _liquidationThreshold, //        uint256 _liquidationBonus
+    ) external {
         require(
             _self.usageAsCollateralEnabled == false,
             "Reserve is already enabled as collateral"

@@ -16,13 +16,15 @@ import {
   calcExpectedReserveDataAfterDeposit,
   calcExpectedUserDataAfterBorrow,
   calcExpectedUserDataAfterDeposit,
+  calcExpectedReserveDataAfterRepay,
+  calcExpectedUserDataAfterRepay,
 } from "../calculations";
 import { ReserveData, UserReserveData } from "../../types";
 import { expect } from "chai";
 import { AToken, LendingPool, LendingPoolCore } from "../../../typechain-types";
 import { getEnvironment } from "./common";
 import BigNumber from "bignumber.js";
-import { SECONDS_PER_YEAR } from "../../constants/common";
+import { MAX_UINT_VALUE, SECONDS_PER_YEAR } from "../../constants/common";
 
 type ActionsConfig = {
   contracts: {
@@ -206,6 +208,7 @@ export const deposit = async (
   );
   if (expectedResult === "success") {
     const { tokens } = await getEnvironment();
+    // TODO: why?
     const dai = tokens.get("DAI");
     if (!dai) {
       throw new Error("DAI token not found in environment");
@@ -355,6 +358,135 @@ export const borrow = async (
     const txResult = lendingPool
       .connect(user)
       .borrow(reserve, amountToBorrow, "0");
+    await expect(txResult).to.be.revertedWith(revertMessage);
+  }
+};
+
+export const repay = async (
+  reserveSymbol: string,
+  amount: string,
+  userAddress: string,
+  onBehalfOf: string,
+  sendValue: string | undefined,
+  expectedResult: string,
+  revertMessage?: string,
+) => {
+  const { lendingPool } = _config.contracts;
+  if (!lendingPool) {
+    throw new Error("Lending pool is not set in configuration");
+  }
+
+  const { tokens } = await getEnvironment();
+
+  let reserve = ETH_ADDRESS;
+
+  if (reserveSymbol !== SYMBOLS.ETH) {
+    const tokenContract = tokens.get(reserveSymbol);
+    if (!tokenContract) {
+      throw new Error(`Token contract not found for ${reserveSymbol}`);
+    }
+
+    reserve = await tokenContract.getAddress();
+  }
+
+  const { reserveData: reserveDataBefore, userData: userDataBefore } =
+    await getContractsData(reserve, onBehalfOf);
+
+  let amountToRepay = 0n;
+
+  if (amount !== "-1") {
+    amountToRepay = convertToCurrencyDecimals(reserveSymbol, amount);
+  } else {
+    amountToRepay = MAX_UINT_VALUE;
+  }
+
+  const txOptions = {
+    value: 0n,
+  };
+
+  if (_config.ethereumAddress === reserve) {
+    if (sendValue) {
+      if (sendValue !== "-1") {
+        txOptions.value = convertToCurrencyDecimals(reserveSymbol, sendValue);
+      } else {
+        txOptions.value =
+          userDataBefore.currentBorrowBalance +
+          convertToCurrencyDecimals(reserveSymbol, "0.1"); //.toFixed(0); //add 0.1 ETH to the repayment amount to cover for accrued interest during tx execution
+      }
+    } else {
+      txOptions.value = amountToRepay;
+    }
+  }
+
+  const user = await hre.ethers.getSigner(userAddress);
+
+  console.log(
+    `[Action: Repay] User ${userAddress} repays ${amount} ${reserveSymbol} to the pool`,
+  );
+
+  if (expectedResult === "success") {
+    const txResult = await lendingPool
+      .connect(user)
+      .repay(reserve, amountToRepay, onBehalfOf, txOptions);
+
+    const { txCost, txTimestamp } = await getTxCostAndTimestamp(txResult);
+
+    const {
+      reserveData: reserveDataAfter,
+      userData: userDataAfter,
+      timestamp,
+    } = await getContractsData(reserve, onBehalfOf);
+
+    const expectedReserveData = calcExpectedReserveDataAfterRepay(
+      amountToRepay,
+      reserveDataBefore,
+      userDataBefore,
+      txTimestamp,
+    );
+
+    const expectedUserData = calcExpectedUserDataAfterRepay(
+      amountToRepay,
+      reserveDataBefore,
+      expectedReserveData,
+      userDataBefore,
+      userAddress,
+      onBehalfOf,
+      txTimestamp,
+      txCost,
+    );
+
+    expectEqual(reserveDataAfter, expectedReserveData);
+    expectEqual(userDataAfter, expectedUserData);
+
+    await expect(txResult)
+      .to.emit(lendingPool, "Repay")
+      .withArgs(
+        reserve,
+        onBehalfOf,
+        userAddress,
+        anyValue,
+        anyValue,
+        anyValue,
+        txTimestamp,
+      );
+
+    // truffleAssert.eventEmitted(txResult, "Repay", (ev: any) => {
+    //   const { _reserve, _user, _repayer } = ev;
+    //
+    //   return (
+    //     _reserve.toLowerCase() === reserve.toLowerCase() &&
+    //     _user.toLowerCase() === onBehalfOf.toLowerCase() &&
+    //     _repayer.toLowerCase() === user.toLowerCase()
+    //   );
+    // });
+  } else if (expectedResult === "revert") {
+    if (!revertMessage) {
+      throw new Error("Revert message is missing in scenario");
+    }
+
+    const txResult = lendingPool
+      .connect(user)
+      .repay(reserve, amountToRepay, onBehalfOf, txOptions);
     await expect(txResult).to.be.revertedWith(revertMessage);
   }
 };

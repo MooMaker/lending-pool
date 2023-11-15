@@ -72,7 +72,7 @@ export const getReserveData = async (
     availableLiquidity: data.availableLiquidity,
     totalBorrowsVariable: data.totalBorrowsVariable,
     liquidityRate: new BigNumberZD(data.liquidityRate.toString()),
-    variableBorrowRate: new BigNumber(data.variableBorrowRate.toString()),
+    variableBorrowRate: new BigNumberZD(data.variableBorrowRate.toString()),
     utilizationRate: new BigNumber(data.utilizationRate.toString()),
     liquidityIndex: new BigNumber(data.liquidityIndex.toString()),
     variableBorrowIndex: new BigNumber(data.variableBorrowIndex.toString()),
@@ -128,7 +128,7 @@ export const getUserData = async (
     principalBorrowBalance: userData.principalBorrowBalance,
     borrowRate: new BigNumberZD(userData.borrowRate.toString()),
     liquidityRate: new BigNumberZD(userData.liquidityRate.toString()),
-    originationFee: new BigNumber(userData.originationFee.toString()),
+    originationFee: userData.originationFee,
     variableBorrowIndex: new BigNumberZD(
       userData.variableBorrowIndex.toString(),
     ),
