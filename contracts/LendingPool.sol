@@ -401,46 +401,47 @@ contract LendingPool is ReentrancyGuard, Initializable {
             return;
         }
 
-        //        vars.paybackAmountMinusFees = vars.paybackAmount.sub(vars.originationFee);
-        //
-        //        core.updateStateOnRepay(
-        //            _reserve,
-        //            _onBehalfOf,
-        //            vars.paybackAmountMinusFees,
-        //            vars.originationFee,
-        //            vars.borrowBalanceIncrease,
-        //            vars.compoundedBorrowBalance == vars.paybackAmountMinusFees
-        //        );
-        //
-        //        //if the user didn't repay the origination fee, transfer the fee to the fee collection address
-        //        if(vars.originationFee > 0) {
-        //            core.transferToFeeCollectionAddress.value(vars.isETH ? vars.originationFee : 0)(
-        //                _reserve,
-        //                msg.sender,
-        //                vars.originationFee,
-        //                addressesProvider.getTokenDistributor()
-        //            );
-        //        }
-        //
-        //        //sending the total msg.value if the transfer is ETH.
-        //        //the transferToReserve() function will take care of sending the
-        //        //excess ETH back to the caller
-        //        core.transferToReserve.value(vars.isETH ? msg.value.sub(vars.originationFee) : 0)(
-        //            _reserve,
-        //            msg.sender,
-        //            vars.paybackAmountMinusFees
-        //        );
-        //
-        //        emit Repay(
-        //            _reserve,
-        //            _onBehalfOf,
-        //            msg.sender,
-        //            vars.paybackAmountMinusFees,
-        //            vars.originationFee,
-        //            vars.borrowBalanceIncrease,
-        //            //solium-disable-next-line
-        //            block.timestamp
-        //        );
+        vars.paybackAmountMinusFees = vars.paybackAmount.sub(
+            vars.originationFee
+        );
+
+        core.updateStateOnRepay(
+            _reserve,
+            _onBehalfOf,
+            vars.paybackAmountMinusFees,
+            vars.originationFee,
+            vars.borrowBalanceIncrease,
+            vars.compoundedBorrowBalance == vars.paybackAmountMinusFees
+        );
+
+        //if the user didn't repay the origination fee, transfer the fee to the fee collection address
+        if (vars.originationFee > 0) {
+            core.transferToFeeCollectionAddress{
+                value: vars.isETH ? vars.originationFee : 0
+            }(
+                _reserve,
+                msg.sender,
+                vars.originationFee,
+                addressesProvider.getTokenDistributor()
+            );
+        }
+
+        //sending the total msg.value if the transfer is ETH.
+        //the transferToReserve() function will take care of sending the
+        //excess ETH back to the caller
+        core.transferToReserve{
+            value: vars.isETH ? msg.value.sub(vars.originationFee) : 0
+        }(_reserve, payable(msg.sender), vars.paybackAmountMinusFees);
+
+        emit Repay(
+            _reserve,
+            _onBehalfOf,
+            msg.sender,
+            vars.paybackAmountMinusFees,
+            vars.originationFee,
+            vars.borrowBalanceIncrease,
+            block.timestamp
+        );
     }
 
     function getReserveData(
