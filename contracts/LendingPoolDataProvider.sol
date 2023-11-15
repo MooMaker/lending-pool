@@ -258,7 +258,6 @@ contract LendingPoolDataProvider is Initializable {
         address _user,
         uint256 _amount
     ) external view returns (bool) {
-        return true;
         // Usage of a memory struct of vars to avoid "Stack too deep" errors due to local variables
         balanceDecreaseAllowedLocalVars memory vars;
 
