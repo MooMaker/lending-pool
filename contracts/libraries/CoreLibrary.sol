@@ -47,6 +47,8 @@ library CoreLibrary {
         uint256 baseLTVasCollateral;
         //the liquidation threshold of the reserve. Expressed in percentage (0-100)
         uint256 liquidationThreshold;
+        //the liquidation bonus of the reserve. Expressed in percentage
+        uint256 liquidationBonus;
         /**
          * @dev address of the interest rate strategy contract
          **/
@@ -284,12 +286,14 @@ library CoreLibrary {
      * @dev enables a reserve to be used as collateral
      * @param _self the reserve object
      * @param _baseLTVasCollateral the loan to value of the asset when used as collateral
-     * !param _liquidationThreshold the threshold at which loans using this asset as collateral will be considered undercollateralized
-     * !param _liquidationBonus the bonus liquidators receive to liquidate this asset
+     * @param _liquidationThreshold the threshold at which loans using this asset as collateral will be considered undercollateralized
+     * @param _liquidationBonus the bonus liquidators receive to liquidate this asset
      **/
     function enableAsCollateral(
         ReserveData storage _self,
-        uint256 _baseLTVasCollateral // TODO(liquidation): handle liquidation logic //        uint256 _liquidationThreshold, //        uint256 _liquidationBonus
+        uint256 _baseLTVasCollateral,
+        uint256 _liquidationThreshold,
+        uint256 _liquidationBonus
     ) external {
         require(
             _self.usageAsCollateralEnabled == false,
@@ -298,9 +302,8 @@ library CoreLibrary {
 
         _self.usageAsCollateralEnabled = true;
         _self.baseLTVasCollateral = _baseLTVasCollateral;
-        // TODO(liquidation): handle liquidation logic
-        //        _self.liquidationThreshold = _liquidationThreshold;
-        //        _self.liquidationBonus = _liquidationBonus;
+        _self.liquidationThreshold = _liquidationThreshold;
+        _self.liquidationBonus = _liquidationBonus;
 
         if (_self.lastLiquidityCumulativeIndex == 0)
             _self.lastLiquidityCumulativeIndex = WadRayMath.ray();

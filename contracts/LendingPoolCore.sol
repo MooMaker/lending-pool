@@ -204,6 +204,33 @@ contract LendingPoolCore is Initializable {
     }
 
     /**
+     * @dev updates the state of the core as a result of a redeem action
+     * @param _reserve the address of the reserve in which the redeem is happening
+     * @param _user the address of the the user redeeming
+     * @param _amountRedeemed the amount being redeemed
+     * @param _userRedeemedEverything true if the user is redeeming everything
+     **/
+    function updateStateOnRedeem(
+        address _reserve,
+        address _user,
+        uint256 _amountRedeemed,
+        bool _userRedeemedEverything
+    ) external onlyLendingPool {
+        //compound liquidity and variable borrow interests
+        reserves[_reserve].updateCumulativeIndexes();
+        updateReserveInterestRatesAndTimestampInternal(
+            _reserve,
+            0,
+            _amountRedeemed
+        );
+
+        //if user redeemed everything the useReserveAsCollateral flag is reset
+        if (_userRedeemedEverything) {
+            setUserUseReserveAsCollateral(_reserve, _user, false);
+        }
+    }
+
+    /**
      * @dev gets the normalized income of the reserve. a value of 1e27 means there is no income. A value of 2e27 means there
      * there has been 100% income.
      * @param _reserve the reserve address
@@ -993,15 +1020,17 @@ contract LendingPoolCore is Initializable {
      **/
     function enableReserveAsCollateral(
         address _reserve,
-        uint256 _baseLTVasCollateral // TODO(liquidation): implement configurator
-    )
-        external
-    // TODO(liquidation): implement //        uint256 _liquidationThreshold, //        uint256 _liquidationBonus
+        uint256 _baseLTVasCollateral,
+        uint256 _liquidationThreshold,
+        uint256 _liquidationBonus
+    ) external // TODO(liquidation): implement configurator
     //        onlyLendingPoolConfigurator
     {
-        reserves[_reserve].enableAsCollateral(_baseLTVasCollateral);
-        //            _liquidationThreshold,
-        //            _liquidationBonus
+        reserves[_reserve].enableAsCollateral(
+            _baseLTVasCollateral,
+            _liquidationThreshold,
+            _liquidationBonus
+        );
     }
 
     /**
