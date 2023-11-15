@@ -364,9 +364,7 @@ export const calcExpectedUserDataAfterBorrow = (
 ): UserReserveData => {
   const expectedUserData = <UserReserveData>{};
 
-  // TODO(fee): handle fee properly
-  // const originationFee = calcExpectedOriginationFee(amountBorrowed);
-  const originationFee = 0n;
+  const originationFee = calcExpectedOriginationFee(amountBorrowed);
 
   const borrowBalanceBeforeTx = calcExpectedCompoundedBorrowBalance(
     userDataBeforeAction,
@@ -404,7 +402,7 @@ export const calcExpectedUserDataAfterBorrow = (
   expectedUserData.liquidityRate = expectedDataAfterAction.liquidityRate;
 
   expectedUserData.originationFee =
-    userDataBeforeAction.originationFee + originationFee;
+    userDataBeforeAction.originationFee.plus(originationFee);
 
   expectedUserData.usageAsCollateralEnabled =
     userDataBeforeAction.usageAsCollateralEnabled;
@@ -509,6 +507,12 @@ const calcLinearInterest = (
   const cumulatedInterest = rayMul(rate, timeDelta).plus(RAY);
 
   return cumulatedInterest;
+};
+
+const calcExpectedOriginationFee = (amount: bigint): BigNumber => {
+  return new BigNumber(amount.toString(10))
+    .multipliedBy(0.0025)
+    .decimalPlaces(0, BigNumber.ROUND_DOWN);
 };
 
 const calcExpectedUtilizationRate = (

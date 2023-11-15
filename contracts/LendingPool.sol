@@ -9,11 +9,13 @@ import "./token/AToken.sol";
 import "./LendingPoolCore.sol";
 import {CoreLibrary} from "./libraries/CoreLibrary.sol";
 import {LendingPoolDataProvider} from "./LendingPoolDataProvider.sol";
+import "./interfaces/IFeeProvider.sol";
 
 contract LendingPool is ReentrancyGuard, Initializable {
     AddressesProvider public addressesProvider;
     LendingPoolDataProvider public dataProvider;
     LendingPoolCore public core;
+    IFeeProvider private feeProvider;
 
     /**
      * @dev emitted on deposit
@@ -84,6 +86,7 @@ contract LendingPool is ReentrancyGuard, Initializable {
             addressesProvider.getLendingPoolDataProvider()
         );
         core = LendingPoolCore(addressesProvider.getLendingPoolCore());
+        feeProvider = IFeeProvider(addressesProvider.getFeeProvider());
     }
 
     /**
@@ -141,7 +144,7 @@ contract LendingPool is ReentrancyGuard, Initializable {
         uint256 principalBorrowBalance;
         uint256 currentLtv;
         uint256 currentLiquidationThreshold;
-        //        uint256 borrowFee;
+        uint256 borrowFee;
         uint256 requestedBorrowAmountETH;
         uint256 amountOfCollateralNeededETH;
         uint256 userCollateralBalanceETH;
@@ -226,21 +229,19 @@ contract LendingPool is ReentrancyGuard, Initializable {
         //        );
         //
 
-        // TODO: implement
         //calculating fees
-        //        vars.borrowFee = feeProvider.calculateLoanOriginationFee(
-        //            msg.sender,
-        //            _amount
-        //        );
-        //
-        //        require(vars.borrowFee > 0, "The amount to borrow is too small");
+        vars.borrowFee = feeProvider.calculateLoanOriginationFee(
+            msg.sender,
+            _amount
+        );
+
+        require(vars.borrowFee > 0, "The amount to borrow is too small");
         //
         vars.amountOfCollateralNeededETH = dataProvider
             .calculateCollateralNeededInETH(
                 _reserve,
                 _amount,
-                // TODO: pass fee
-                /* vars.borrowFee */ 0,
+                vars.borrowFee,
                 vars.userBorrowBalanceETH,
                 vars.userTotalFeesETH,
                 vars.currentLtv
@@ -257,8 +258,7 @@ contract LendingPool is ReentrancyGuard, Initializable {
                 _reserve,
                 msg.sender,
                 _amount,
-                // TODO: pass fee
-                /* vars.borrowFee */ 0,
+                vars.borrowFee,
                 CoreLibrary.InterestRateMode.VARIABLE
             );
 
@@ -270,8 +270,7 @@ contract LendingPool is ReentrancyGuard, Initializable {
             msg.sender,
             _amount,
             vars.finalUserBorrowRate,
-            // TODO: add borrow fee
-            /* vars.borrowFee */ 0,
+            vars.borrowFee,
             vars.borrowBalanceIncrease,
             _referralCode,
             block.timestamp

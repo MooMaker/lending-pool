@@ -37,7 +37,7 @@ export async function getEnvironment(): Promise<{
   };
 }
 
-// TODO: revisit with team. Why changing RESERVE_LTV to 80 leads to enough collateral?
+// TODO: revisit. Why changing RESERVE_LTV to 80 leads to enough collateral?
 const RESERVE_LTV = "60";
 
 export async function setupContracts(): Promise<{
@@ -58,6 +58,11 @@ export async function setupContracts(): Promise<{
       "AddressesProvider",
     );
     const addressesProvider = await addressesProviderFactory.deploy();
+
+    const feeProviderFactory = await hre.ethers.getContractFactory(
+      "FeeProvider",
+    );
+    const feeProvider = await feeProviderFactory.deploy();
 
     const lendingPoolFactory = await hre.ethers.getContractFactory(
       "LendingPool",
@@ -85,6 +90,7 @@ export async function setupContracts(): Promise<{
       lendingPool,
       lendingPoolCore,
       lendingPoolDataProvider,
+      feeProvider,
     };
   };
 
@@ -93,6 +99,7 @@ export async function setupContracts(): Promise<{
     lendingPool,
     lendingPoolCore,
     lendingPoolDataProvider,
+    feeProvider,
   } = await deployContracts();
 
   const deployChainlinkPriceOracle = async () => {
@@ -141,6 +148,8 @@ export async function setupContracts(): Promise<{
       await chainLinkProxyPriceProvider.getAddress(),
     );
 
+    await addressesProvider.setFeeProviderImpl(await feeProvider.getAddress());
+
     // Initialize lending pool core
     await lendingPoolCore.initialize(addressesProvider);
 
@@ -149,6 +158,9 @@ export async function setupContracts(): Promise<{
 
     // Initialize data provider
     await lendingPoolDataProvider.initialize(addressesProvider);
+
+    // Initialize fee provider
+    await feeProvider.initialize(addressesProvider);
   };
 
   await setup();

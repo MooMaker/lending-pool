@@ -128,7 +128,7 @@ export const getUserData = async (
     principalBorrowBalance: userData.principalBorrowBalance,
     borrowRate: new BigNumberZD(userData.borrowRate.toString()),
     liquidityRate: new BigNumberZD(userData.liquidityRate.toString()),
-    originationFee: userData.originationFee,
+    originationFee: new BigNumber(userData.originationFee.toString()),
     variableBorrowIndex: new BigNumberZD(
       userData.variableBorrowIndex.toString(),
     ),
