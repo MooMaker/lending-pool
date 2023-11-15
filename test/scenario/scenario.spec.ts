@@ -51,6 +51,7 @@ describe("Scenario tests", () => {
             [SYMBOLS.ETH, STRATEGY_VOLATILE_ONE],
             [SYMBOLS.DAI, STRATEGY_VOLATILE_ONE],
             [SYMBOLS.USDC, STRATEGY_VOLATILE_ONE],
+            [SYMBOLS.LINK, STRATEGY_VOLATILE_ONE],
           ]),
           ethereumAddress: ETH,
         });
