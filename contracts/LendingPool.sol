@@ -3,20 +3,25 @@ pragma solidity ^0.8.18;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {SafeMath} from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 import "./configuration/AddressesProvider.sol";
 import "./token/AToken.sol";
 import "./LendingPoolCore.sol";
 import {CoreLibrary} from "./libraries/CoreLibrary.sol";
+import {EthAddressLib} from "./libraries/EthAddressLib.sol";
 import {LendingPoolDataProvider} from "./LendingPoolDataProvider.sol";
-import "./interfaces/IFeeProvider.sol";
+import {IFeeProvider} from "./interfaces/IFeeProvider.sol";
 
 contract LendingPool is ReentrancyGuard, Initializable {
+    using SafeMath for uint256;
+
     AddressesProvider public addressesProvider;
     LendingPoolDataProvider public dataProvider;
     LendingPoolCore public core;
     IFeeProvider private feeProvider;
 
+    uint256 public constant UINT_MAX_VALUE = type(uint256).max;
     /**
      * @dev emitted on deposit
      * @param _reserve the address of the reserve
@@ -50,6 +55,26 @@ contract LendingPool is ReentrancyGuard, Initializable {
         uint256 _originationFee,
         uint256 _borrowBalanceIncrease,
         uint16 indexed _referral,
+        uint256 _timestamp
+    );
+
+    /**
+     * @dev emitted on repay
+     * @param _reserve the address of the reserve
+     * @param _user the address of the user for which the repay has been executed
+     * @param _repayer the address of the user that has performed the repay action
+     * @param _amountMinusFees the amount repaid minus fees
+     * @param _fees the fees repaid
+     * @param _borrowBalanceIncrease the balance increase since the last action
+     * @param _timestamp the timestamp of the action
+     **/
+    event Repay(
+        address indexed _reserve,
+        address indexed _user,
+        address indexed _repayer,
+        uint256 _amountMinusFees,
+        uint256 _fees,
+        uint256 _borrowBalanceIncrease,
         uint256 _timestamp
     );
 
@@ -275,6 +300,147 @@ contract LendingPool is ReentrancyGuard, Initializable {
             _referralCode,
             block.timestamp
         );
+    }
+
+    /**
+     * @notice repays a borrow on the specific reserve, for the specified amount (or for the whole amount, if uint256(-1) is specified).
+     * @dev the target user is defined by _onBehalfOf. If there is no repayment on behalf of another account,
+     * _onBehalfOf must be equal to msg.sender.
+     * @param _reserve the address of the reserve on which the user borrowed
+     * @param _amount the amount to repay, or uint256(-1) if the user wants to repay everything
+     * @param _onBehalfOf the address for which msg.sender is repaying.
+     **/
+
+    struct RepayLocalVars {
+        uint256 principalBorrowBalance;
+        uint256 compoundedBorrowBalance;
+        uint256 borrowBalanceIncrease;
+        bool isETH;
+        uint256 paybackAmount;
+        uint256 paybackAmountMinusFees;
+        uint256 currentStableRate;
+        uint256 originationFee;
+    }
+
+    function repay(
+        address _reserve,
+        uint256 _amount,
+        address payable _onBehalfOf
+    )
+        external
+        payable
+        nonReentrant
+        onlyActiveReserve(_reserve)
+        onlyAmountGreaterThanZero(_amount)
+    {
+        // Usage of a memory struct of vars to avoid "Stack too deep" errors due to local variables
+        RepayLocalVars memory vars;
+
+        (
+            vars.principalBorrowBalance,
+            vars.compoundedBorrowBalance,
+            vars.borrowBalanceIncrease
+        ) = core.getUserBorrowBalances(_reserve, _onBehalfOf);
+
+        vars.originationFee = core.getUserOriginationFee(_reserve, _onBehalfOf);
+        vars.isETH = EthAddressLib.ethAddress() == _reserve;
+
+        require(
+            vars.compoundedBorrowBalance > 0,
+            "The user does not have any borrow pending"
+        );
+
+        require(
+            _amount != UINT_MAX_VALUE || msg.sender == _onBehalfOf,
+            "To repay on behalf of an user an explicit amount to repay is needed."
+        );
+
+        //default to max amount
+        vars.paybackAmount = vars.compoundedBorrowBalance.add(
+            vars.originationFee
+        );
+
+        if (_amount != UINT_MAX_VALUE && _amount < vars.paybackAmount) {
+            vars.paybackAmount = _amount;
+        }
+
+        require(
+            !vars.isETH || msg.value >= vars.paybackAmount,
+            "Invalid msg.value sent for the repayment"
+        );
+
+        //if the amount is smaller than the origination fee, just transfer the amount to the fee destination address
+        if (vars.paybackAmount <= vars.originationFee) {
+            core.updateStateOnRepay(
+                _reserve,
+                _onBehalfOf,
+                0,
+                vars.paybackAmount,
+                vars.borrowBalanceIncrease,
+                false
+            );
+
+            core.transferToFeeCollectionAddress{
+                value: vars.isETH ? vars.paybackAmount : 0
+            }(
+                _reserve,
+                _onBehalfOf,
+                vars.paybackAmount,
+                addressesProvider.getTokenDistributor()
+            );
+
+            emit Repay(
+                _reserve,
+                _onBehalfOf,
+                msg.sender,
+                0,
+                vars.paybackAmount,
+                vars.borrowBalanceIncrease,
+                block.timestamp
+            );
+            return;
+        }
+
+        //        vars.paybackAmountMinusFees = vars.paybackAmount.sub(vars.originationFee);
+        //
+        //        core.updateStateOnRepay(
+        //            _reserve,
+        //            _onBehalfOf,
+        //            vars.paybackAmountMinusFees,
+        //            vars.originationFee,
+        //            vars.borrowBalanceIncrease,
+        //            vars.compoundedBorrowBalance == vars.paybackAmountMinusFees
+        //        );
+        //
+        //        //if the user didn't repay the origination fee, transfer the fee to the fee collection address
+        //        if(vars.originationFee > 0) {
+        //            core.transferToFeeCollectionAddress.value(vars.isETH ? vars.originationFee : 0)(
+        //                _reserve,
+        //                msg.sender,
+        //                vars.originationFee,
+        //                addressesProvider.getTokenDistributor()
+        //            );
+        //        }
+        //
+        //        //sending the total msg.value if the transfer is ETH.
+        //        //the transferToReserve() function will take care of sending the
+        //        //excess ETH back to the caller
+        //        core.transferToReserve.value(vars.isETH ? msg.value.sub(vars.originationFee) : 0)(
+        //            _reserve,
+        //            msg.sender,
+        //            vars.paybackAmountMinusFees
+        //        );
+        //
+        //        emit Repay(
+        //            _reserve,
+        //            _onBehalfOf,
+        //            msg.sender,
+        //            vars.paybackAmountMinusFees,
+        //            vars.originationFee,
+        //            vars.borrowBalanceIncrease,
+        //            //solium-disable-next-line
+        //            block.timestamp
+        //        );
     }
 
     function getReserveData(

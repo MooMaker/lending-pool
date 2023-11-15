@@ -12,12 +12,14 @@ contract AddressesProvider is Ownable, IAddressesProvider, AddressStorage {
     event PriceOracleUpdated(address indexed newAddress);
     event LendingPoolDataProviderUpdated(address indexed newAddress);
     event FeeProviderUpdated(address indexed newAddress);
+    event TokenDistributorUpdated(address indexed newAddress);
 
     bytes32 private constant LENDING_POOL = "LENDING_POOL";
     bytes32 private constant LENDING_POOL_CORE = "LENDING_POOL_CORE";
     bytes32 private constant PRICE_ORACLE = "PRICE_ORACLE";
     bytes32 private constant DATA_PROVIDER = "DATA_PROVIDER";
     bytes32 private constant FEE_PROVIDER = "FEE_PROVIDER";
+    bytes32 private constant TOKEN_DISTRIBUTOR = "TOKEN_DISTRIBUTOR";
 
     /**
      * @dev returns the address of the LendingPool proxy
@@ -97,5 +99,14 @@ contract AddressesProvider is Ownable, IAddressesProvider, AddressStorage {
     function setFeeProviderImpl(address _feeProvider) public onlyOwner {
         _setAddress(FEE_PROVIDER, _feeProvider);
         emit FeeProviderUpdated(_feeProvider);
+    }
+
+    function getTokenDistributor() public view returns (address) {
+        return getAddress(TOKEN_DISTRIBUTOR);
+    }
+
+    function setTokenDistributor(address _tokenDistributor) public onlyOwner {
+        _setAddress(TOKEN_DISTRIBUTOR, _tokenDistributor);
+        emit TokenDistributorUpdated(_tokenDistributor);
     }
 }

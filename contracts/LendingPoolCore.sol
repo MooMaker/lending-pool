@@ -13,6 +13,7 @@ import "./token/AToken.sol";
 contract LendingPoolCore is Initializable {
     using SafeMath for uint256;
     using WadRayMath for uint256;
+    using SafeERC20 for ERC20;
 
     using CoreLibrary for CoreLibrary.ReserveData;
     using CoreLibrary for CoreLibrary.UserReserveData;
@@ -160,6 +161,46 @@ contract LendingPoolCore is Initializable {
         );
 
         return (getUserCurrentBorrowRate(_reserve, _user), balanceIncrease);
+    }
+
+    /**
+     * @dev updates the state of the core as a consequence of a repay action.
+     * @param _reserve the address of the reserve on which the user is repaying
+     * @param _user the address of the borrower
+     * @param _paybackAmountMinusFees the amount being paid back minus fees
+     * @param _originationFeeRepaid the fee on the amount that is being repaid
+     * @param _balanceIncrease the accrued interest on the borrowed amount
+     * @param _repaidWholeLoan true if the user is repaying the whole loan
+     **/
+
+    function updateStateOnRepay(
+        address _reserve,
+        address _user,
+        uint256 _paybackAmountMinusFees,
+        uint256 _originationFeeRepaid,
+        uint256 _balanceIncrease,
+        bool _repaidWholeLoan
+    ) external onlyLendingPool {
+        updateReserveStateOnRepayInternal(
+            _reserve,
+            _user,
+            _paybackAmountMinusFees,
+            _balanceIncrease
+        );
+        updateUserStateOnRepayInternal(
+            _reserve,
+            _user,
+            _paybackAmountMinusFees,
+            _originationFeeRepaid,
+            _balanceIncrease,
+            _repaidWholeLoan
+        );
+
+        updateReserveInterestRatesAndTimestampInternal(
+            _reserve,
+            _paybackAmountMinusFees,
+            0
+        );
     }
 
     /**
@@ -367,6 +408,75 @@ contract LendingPoolCore is Initializable {
     }
 
     /**
+     * @dev updates the state of the reserve as a consequence of a repay action.
+     * @param _reserve the address of the reserve on which the user is repaying
+     * @param _user the address of the borrower
+     * @param _paybackAmountMinusFees the amount being paid back minus fees
+     * @param _balanceIncrease the accrued interest on the borrowed amount
+     **/
+
+    function updateReserveStateOnRepayInternal(
+        address _reserve,
+        address _user,
+        uint256 _paybackAmountMinusFees,
+        uint256 _balanceIncrease
+    ) internal {
+        CoreLibrary.ReserveData storage reserve = reserves[_reserve];
+        CoreLibrary.UserReserveData storage user = usersReserveData[_user][
+            _reserve
+        ];
+
+        //update the indexes
+        reserves[_reserve].updateCumulativeIndexes();
+
+        //compound the cumulated interest to the borrow balance and then subtracting the payback amount
+
+        reserve.increaseTotalBorrowsVariable(_balanceIncrease);
+        reserve.decreaseTotalBorrowsVariable(_paybackAmountMinusFees);
+    }
+
+    /**
+     * @dev updates the state of the user as a consequence of a repay action.
+     * @param _reserve the address of the reserve on which the user is repaying
+     * @param _user the address of the borrower
+     * @param _paybackAmountMinusFees the amount being paid back minus fees
+     * @param _originationFeeRepaid the fee on the amount that is being repaid
+     * @param _balanceIncrease the accrued interest on the borrowed amount
+     * @param _repaidWholeLoan true if the user is repaying the whole loan
+     **/
+    function updateUserStateOnRepayInternal(
+        address _reserve,
+        address _user,
+        uint256 _paybackAmountMinusFees,
+        uint256 _originationFeeRepaid,
+        uint256 _balanceIncrease,
+        bool _repaidWholeLoan
+    ) internal {
+        CoreLibrary.ReserveData storage reserve = reserves[_reserve];
+        CoreLibrary.UserReserveData storage user = usersReserveData[_user][
+            _reserve
+        ];
+
+        //update the user principal borrow balance, adding the cumulated interest and then subtracting the payback amount
+        user.principalBorrowBalance = user
+            .principalBorrowBalance
+            .add(_balanceIncrease)
+            .sub(_paybackAmountMinusFees);
+        user.lastVariableBorrowCumulativeIndex = reserve
+            .lastVariableBorrowCumulativeIndex;
+
+        //if the balance decrease is equal to the previous principal (user is repaying the whole loan)
+        //and the rate mode is stable, we reset the interest rate mode of the user
+        if (_repaidWholeLoan) {
+            user.lastVariableBorrowCumulativeIndex = 0;
+        }
+        user.originationFee = user.originationFee.sub(_originationFeeRepaid);
+
+        //solium-disable-next-line
+        user.lastUpdateTimestamp = uint40(block.timestamp);
+    }
+
+    /**
      * @dev transfers an amount from a user to the destination reserve
      * @param _reserve the address of the reserve where the amount is being transferred
      * @param _user the address of the user from where the transfer is happening
@@ -492,6 +602,39 @@ contract LendingPoolCore is Initializable {
         }
 
         return reserves[_reserve].currentVariableBorrowRate;
+    }
+
+    /**
+     * @dev transfers the protocol fees to the fees collection address
+     * @param _token the address of the token being transferred
+     * @param _user the address of the user from where the transfer is happening
+     * @param _amount the amount being transferred
+     * @param _destination the fee receiver address
+     **/
+
+    function transferToFeeCollectionAddress(
+        address _token,
+        address _user,
+        uint256 _amount,
+        address _destination
+    ) external payable onlyLendingPool {
+        address payable feeAddress = payable(_destination); //cast the address to payable
+
+        if (_token != EthAddressLib.ethAddress()) {
+            require(
+                msg.value == 0,
+                "User is sending ETH along with the ERC20 transfer. Check the value attribute of the transaction"
+            );
+            ERC20(_token).safeTransferFrom(_user, feeAddress, _amount);
+        } else {
+            require(
+                msg.value >= _amount,
+                "The amount and the value sent to deposit do not match"
+            );
+            //solium-disable-next-line
+            (bool result, ) = feeAddress.call{value: _amount, gas: 50000}("");
+            require(result, "Transfer of ETH failed");
+        }
     }
 
     /**
