@@ -18,6 +18,8 @@ import {
   calcExpectedUserDataAfterDeposit,
   calcExpectedReserveDataAfterRepay,
   calcExpectedUserDataAfterRepay,
+  calcExpectedReserveDataAfterRedeem,
+  calcExpectedUserDataAfterRedeem,
 } from "../calculations";
 import { ReserveData, UserReserveData } from "../../types";
 import { expect } from "chai";
@@ -206,6 +208,7 @@ export const deposit = async (
       decimals,
     )} ${reserveSymbol} deposits ${amount} ${reserveSymbol} to the pool`,
   );
+
   if (expectedResult === "success") {
     const { tokens } = await getEnvironment();
     // TODO: why?
@@ -335,6 +338,7 @@ export const borrow = async (
       timestamp,
       txCost,
     );
+
     expectEqual(reserveDataAfter, expectedReserveData);
     expectEqual(userDataAfter, expectedUserData);
 
@@ -466,16 +470,6 @@ export const repay = async (
         anyValue,
         txTimestamp,
       );
-
-    // truffleAssert.eventEmitted(txResult, "Repay", (ev: any) => {
-    //   const { _reserve, _user, _repayer } = ev;
-    //
-    //   return (
-    //     _reserve.toLowerCase() === reserve.toLowerCase() &&
-    //     _user.toLowerCase() === onBehalfOf.toLowerCase() &&
-    //     _repayer.toLowerCase() === user.toLowerCase()
-    //   );
-    // });
   } else if (expectedResult === "revert") {
     if (!revertMessage) {
       throw new Error("Revert message is missing in scenario");
@@ -484,6 +478,82 @@ export const repay = async (
     const txResult = lendingPool
       .connect(user)
       .repay(reserve, amountToRepay, onBehalfOf, txOptions);
+    await expect(txResult).to.be.revertedWith(revertMessage);
+  }
+};
+
+export const redeem = async (
+  reserveSymbol: string,
+  amount: string,
+  userAddress: string,
+  expectedResult: string,
+  revertMessage?: string,
+) => {
+  const {
+    aTokenInstance,
+    reserve,
+    userData: userDataBefore,
+    reserveData: reserveDataBefore,
+  } = await getDataBeforeAction(reserveSymbol, userAddress);
+
+  let amountToRedeem = 0n;
+
+  if (amount !== "-1") {
+    amountToRedeem = convertToCurrencyDecimals(reserveSymbol, amount);
+  } else {
+    amountToRedeem = MAX_UINT_VALUE;
+  }
+
+  const user = await hre.ethers.getSigner(userAddress);
+
+  console.log(
+    `[Action: Redeem] User ${userAddress} redeems ${amount} ${reserveSymbol} from pool`,
+  );
+
+  if (expectedResult === "success") {
+    const txResult = await aTokenInstance.connect(user).redeem(amountToRedeem);
+
+    const {
+      reserveData: reserveDataAfter,
+      userData: userDataAfter,
+      timestamp,
+    } = await getContractsData(reserve, userAddress);
+
+    const { txCost, txTimestamp } = await getTxCostAndTimestamp(txResult);
+    const expectedReserveData = calcExpectedReserveDataAfterRedeem(
+      amountToRedeem,
+      reserveDataBefore,
+      userDataBefore,
+      txTimestamp,
+    );
+
+    const expectedUserData = calcExpectedUserDataAfterRedeem(
+      amountToRedeem,
+      reserveDataBefore,
+      expectedReserveData,
+      userDataBefore,
+      txTimestamp,
+      timestamp,
+      txCost,
+    );
+
+    const actualAmountRedeemed =
+      userDataBefore.currentATokenBalance -
+      expectedUserData.currentATokenBalance;
+
+    expectEqual(reserveDataAfter, expectedReserveData);
+    expectEqual(userDataAfter, expectedUserData);
+
+    await expect(txResult)
+      .to.emit(aTokenInstance, "Redeem")
+      .withArgs(userAddress, actualAmountRedeemed, anyValue, anyValue);
+  } else if (expectedResult === "revert") {
+    if (!revertMessage) {
+      throw new Error("Revert message is missing in scenario");
+    }
+
+    const txResult = aTokenInstance.connect(user).redeem(amountToRedeem);
+
     await expect(txResult).to.be.revertedWith(revertMessage);
   }
 };
@@ -506,6 +576,45 @@ const getTxCostAndTimestamp = async (tx: ContractTransactionResponse) => {
   }
 
   return { txCost, txTimestamp };
+};
+
+const getDataBeforeAction = async (
+  reserveSymbol: string,
+  userAddress: string,
+) => {
+  const { tokens } = await getEnvironment();
+
+  let reserve = ETH_ADDRESS;
+
+  if (reserveSymbol !== SYMBOLS.ETH) {
+    const tokenContract = tokens.get(reserveSymbol);
+    if (!tokenContract) {
+      throw new Error(`Token contract not found for ${reserveSymbol}`);
+    }
+
+    reserve = await tokenContract.getAddress();
+  }
+
+  const { reserveData, userData } = await getContractsData(
+    reserve,
+    userAddress,
+  );
+
+  const { aTokenAddress } = reserveData;
+
+  const { aTokensPerAddress } = getConfig().contracts;
+  const aTokenInstance = aTokensPerAddress.get(aTokenAddress);
+
+  if (!aTokenInstance) {
+    throw `Could not find aToken instance for ${aTokenAddress}`;
+  }
+
+  return {
+    reserve,
+    reserveData,
+    userData,
+    aTokenInstance,
+  };
 };
 
 const getContractsData = async (reserve: string, user: string) => {

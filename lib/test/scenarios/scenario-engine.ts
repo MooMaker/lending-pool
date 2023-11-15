@@ -2,10 +2,11 @@ import {
   Action,
   BorrowActionArgs,
   DepositActionArgs,
+  RedeemActionArgs,
   RepayActionArgs,
   Story,
 } from "../../../test/scenario/types";
-import { approve, borrow, deposit, repay, transfer } from "./actions";
+import { approve, borrow, deposit, redeem, repay, transfer } from "./actions";
 
 export const executeStory = async (story: Story, users: string[]) => {
   for (const action of story.actions) {
@@ -44,6 +45,7 @@ const executeAction = async (action: Action, users: string[]) => {
       await transfer(reserve, amount, userAddress);
       break;
     }
+
     case "approve":
       await approve(reserve, userAddress);
       break;
@@ -82,6 +84,18 @@ const executeAction = async (action: Action, users: string[]) => {
           expected,
           revertMessage,
         );
+      }
+      break;
+
+    case "redeem":
+      {
+        const { amount } = action.args as RedeemActionArgs;
+
+        if (!amount || amount === "") {
+          throw `Invalid amount to redeem from the ${reserve} reserve`;
+        }
+
+        await redeem(reserve, amount, userAddress, expected, revertMessage);
       }
       break;
 

@@ -13,7 +13,11 @@ import {
   InterestRateStrategy,
   OPTIMAL_UTILIZATION_RATE,
 } from "../constants/reserves";
-import { MAX_UINT_VALUE, SECONDS_PER_YEAR } from "../constants/common";
+import {
+  MAX_UINT_VALUE,
+  NIL_ADDRESS,
+  SECONDS_PER_YEAR,
+} from "../constants/common";
 import { BigNumberZD } from "../utils/bignumber";
 
 type CalcConfig = {
@@ -427,6 +431,61 @@ export const calcExpectedReserveDataAfterRepay = (
   return expectedReserveData;
 };
 
+export const calcExpectedReserveDataAfterRedeem = (
+  amountRedeemed: bigint,
+  reserveDataBeforeAction: ReserveData,
+  userDataBeforeAction: UserReserveData,
+  txTimestamp: bigint,
+): ReserveData => {
+  const expectedReserveData: ReserveData = <ReserveData>{};
+
+  expectedReserveData.address = reserveDataBeforeAction.address;
+
+  if (amountRedeemed == MAX_UINT_VALUE) {
+    amountRedeemed = calcExpectedATokenBalance(
+      reserveDataBeforeAction,
+      userDataBeforeAction,
+      txTimestamp,
+    );
+  }
+
+  expectedReserveData.totalLiquidity =
+    reserveDataBeforeAction.totalLiquidity - amountRedeemed;
+  expectedReserveData.availableLiquidity =
+    reserveDataBeforeAction.availableLiquidity - amountRedeemed;
+
+  expectedReserveData.totalBorrowsStable =
+    reserveDataBeforeAction.totalBorrowsStable;
+  expectedReserveData.totalBorrowsVariable =
+    reserveDataBeforeAction.totalBorrowsVariable;
+  expectedReserveData.averageStableBorrowRate =
+    reserveDataBeforeAction.averageStableBorrowRate;
+
+  expectedReserveData.utilizationRate = calcExpectedUtilizationRate(
+    expectedReserveData.totalBorrowsVariable,
+    expectedReserveData.totalLiquidity,
+  );
+  const { liquidityRate, variableBorrowRate } = calcExpectedInterestRates(
+    reserveDataBeforeAction.symbol,
+    expectedReserveData.utilizationRate,
+  );
+  expectedReserveData.liquidityRate = liquidityRate;
+  expectedReserveData.variableBorrowRate = variableBorrowRate;
+
+  expectedReserveData.averageStableBorrowRate =
+    reserveDataBeforeAction.averageStableBorrowRate;
+  expectedReserveData.liquidityIndex = calcExpectedLiquidityIndex(
+    reserveDataBeforeAction,
+    txTimestamp,
+  );
+  expectedReserveData.variableBorrowIndex = calcExpectedVariableBorrowIndex(
+    reserveDataBeforeAction,
+    txTimestamp,
+  );
+
+  return expectedReserveData;
+};
+
 export const calcExpectedUserDataAfterBorrow = (
   amountBorrowed: bigint,
   reserveDataBeforeAction: ReserveData,
@@ -507,6 +566,105 @@ export const calcExpectedUserDataAfterBorrow = (
     expectedUserData.walletBalance =
       userDataBeforeAction.walletBalance + amountBorrowed;
   }
+
+  return expectedUserData;
+};
+
+export const calcExpectedUserDataAfterRedeem = (
+  amountRedeemed: bigint,
+  reserveDataBeforeAction: ReserveData,
+  reserveDataAfterAction: ReserveData,
+  userDataBeforeAction: UserReserveData,
+  txTimestamp: bigint,
+  currentTimestamp: bigint,
+  txCost: bigint,
+): UserReserveData => {
+  const expectedUserData = <UserReserveData>{};
+
+  const aTokenBalance = calcExpectedATokenBalance(
+    reserveDataBeforeAction,
+    userDataBeforeAction,
+    txTimestamp,
+  );
+
+  if (amountRedeemed == MAX_UINT_VALUE) {
+    amountRedeemed = aTokenBalance;
+  }
+  expectedUserData.principalATokenBalance =
+    expectedUserData.currentATokenBalance = aTokenBalance - amountRedeemed;
+  expectedUserData.currentBorrowBalance = calcExpectedCompoundedBorrowBalance(
+    userDataBeforeAction,
+    reserveDataBeforeAction,
+    txTimestamp,
+  );
+  expectedUserData.principalBorrowBalance =
+    userDataBeforeAction.principalBorrowBalance;
+  expectedUserData.borrowRateMode = userDataBeforeAction.borrowRateMode;
+
+  expectedUserData.borrowRateMode = userDataBeforeAction.borrowRateMode;
+
+  // TODO: handle none
+  // if (userDataBeforeAction.borrowRateMode === RATEMODE_NONE) {
+  //   expectedUserData.borrowRate = new BigNumber("0");
+  // } else {
+  expectedUserData.borrowRate = userDataBeforeAction.borrowRate;
+  // }
+
+  expectedUserData.liquidityRate = reserveDataAfterAction.liquidityRate;
+
+  expectedUserData.originationFee = userDataBeforeAction.originationFee;
+
+  if (userDataBeforeAction.currentATokenBalance === 0n) {
+    expectedUserData.usageAsCollateralEnabled = true;
+  } else {
+    //if user is redeeming everything, usageAsCollateralEnabled must be false
+    if (expectedUserData.currentATokenBalance === 0n) {
+      expectedUserData.usageAsCollateralEnabled = false;
+    } else {
+      expectedUserData.usageAsCollateralEnabled =
+        userDataBeforeAction.usageAsCollateralEnabled;
+    }
+  }
+
+  expectedUserData.variableBorrowIndex =
+    userDataBeforeAction.variableBorrowIndex;
+
+  if (reserveDataBeforeAction.address === _config.ethereumAddress) {
+    expectedUserData.walletBalance =
+      userDataBeforeAction.walletBalance - txCost + amountRedeemed;
+  } else {
+    expectedUserData.walletBalance =
+      userDataBeforeAction.walletBalance + amountRedeemed;
+  }
+
+  expectedUserData.redirectedBalance = userDataBeforeAction.redirectedBalance;
+
+  if (
+    expectedUserData.currentATokenBalance === 0n &&
+    expectedUserData.redirectedBalance === 0n
+  ) {
+    expectedUserData.interestRedirectionAddress = NIL_ADDRESS;
+  } else {
+    expectedUserData.interestRedirectionAddress =
+      userDataBeforeAction.interestRedirectionAddress;
+  }
+  expectedUserData.currentATokenUserIndex = calcExpectedATokenUserIndex(
+    reserveDataBeforeAction,
+    expectedUserData.currentATokenBalance,
+    // TODO: handle redirects?
+    // expectedUserData.redirectedBalance,
+    txTimestamp,
+  );
+
+  // TODO: handle redirects?
+  // expectedUserData.redirectionAddressRedirectedBalance =
+  //   calcExpectedRedirectedBalance(
+  //     userDataBeforeAction,
+  //     expectedUserData,
+  //     userDataBeforeAction.redirectionAddressRedirectedBalance,
+  //     new BigNumber(0),
+  //     new BigNumber(amountRedeemed),
+  //   );
 
   return expectedUserData;
 };

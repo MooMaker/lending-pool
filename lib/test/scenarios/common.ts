@@ -39,6 +39,8 @@ export async function getEnvironment(): Promise<{
 
 // TODO: revisit. Why changing RESERVE_LTV to 80 leads to enough collateral?
 const RESERVE_LTV = "60";
+const LIQUIDATION_THRESHOLD = "80";
+const LIQUIDATION_BONUS = "1";
 
 export async function setupContracts(): Promise<{
   addressesProvider: AddressesProvider;
@@ -264,6 +266,8 @@ export async function setupContracts(): Promise<{
       await lendingPoolCore.enableReserveAsCollateral(
         tokenAddress,
         RESERVE_LTV,
+        LIQUIDATION_THRESHOLD,
+        LIQUIDATION_BONUS,
       );
     }
   };

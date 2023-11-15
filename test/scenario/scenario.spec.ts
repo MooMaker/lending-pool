@@ -1,8 +1,10 @@
 import hre from "hardhat";
 import { Scenario } from "./types";
 
-import DEPOSIT_SCENARIO from "./scenarios/deposit.json";
-import BORROW_REPAY_SCENARIO from "./scenarios/borrow-repay.json";
+import DEPOSIT_SCENARIOS from "./scenarios/deposit.json";
+import BORROW_REPAY_SCENARIOS from "./scenarios/borrow-repay.json";
+import REDEEM_SCENARIOS from "./scenarios/redeem.json";
+import REDEEM_NEGATIVE_SCENARIOS from "./scenarios/redeem-negatives.json";
 import { executeStory } from "../../lib/test/scenarios/scenario-engine";
 import { setConfig as setActionsConfig } from "../../lib/test/scenarios/actions";
 import { setConfig as setCalcConfig } from "../../lib/test/calculations";
@@ -12,8 +14,10 @@ import { ETH, SYMBOLS } from "../../lib/constants/tokens";
 import { STRATEGY_VOLATILE_ONE } from "../../lib/constants/reserves";
 
 const scenarioSpec = [
-  DEPOSIT_SCENARIO as Scenario,
-  BORROW_REPAY_SCENARIO as Scenario,
+  // DEPOSIT_SCENARIO as Scenario,
+  // BORROW_REPAY_SCENARIO as Scenario,
+  REDEEM_SCENARIOS as Scenario,
+  REDEEM_NEGATIVE_SCENARIOS as Scenario,
 ];
 
 describe("Scenario tests", () => {

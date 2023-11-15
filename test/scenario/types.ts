@@ -20,8 +20,17 @@ export type RepayActionArgs = {
   sendValue?: string;
 };
 
-// TODO: add more action args types with OR
-type ActionArgs = DepositActionArgs | BorrowActionArgs | RepayActionArgs;
+export type RedeemActionArgs = {
+  reserve: string;
+  amount: string;
+  user: string;
+};
+
+type ActionArgs =
+  | DepositActionArgs
+  | BorrowActionArgs
+  | RepayActionArgs
+  | RedeemActionArgs;
 
 export type Action = {
   name: string;
