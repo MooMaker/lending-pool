@@ -210,11 +210,10 @@ contract AToken is ERC20Wrapper {
         _burn(msg.sender, amountToRedeem);
 
         bool userIndexReset = false;
-        // TODO(redirects): implement?
         //reset the user data if the remaining balance is 0
-        //        if (currentBalance.sub(amountToRedeem) == 0) {
-        //            userIndexReset = resetDataOnZeroBalanceInternal(msg.sender);
-        //        }
+        if (currentBalance.sub(amountToRedeem) == 0) {
+            userIndexReset = resetDataOnZeroBalanceInternal(msg.sender);
+        }
 
         // executes redeem of the underlying asset
         pool.redeemUnderlying(
@@ -317,5 +316,30 @@ contract AToken is ERC20Wrapper {
      **/
     function principalBalanceOf(address _user) external view returns (uint256) {
         return super.balanceOf(_user);
+    }
+
+    /**
+     * @dev function to reset the interest stream redirection and the user index, if the
+     * user has no balance left.
+     * @param _user the address of the user
+     * @return true if the user index has also been reset, false otherwise. useful to emit the proper user index value
+     **/
+    function resetDataOnZeroBalanceInternal(
+        address _user
+    ) internal returns (bool) {
+        // TODO(redirects): implement?
+        //if the user has 0 principal balance, the interest stream redirection gets reset
+        //        interestRedirectionAddresses[_user] = address(0);
+
+        //emits a InterestStreamRedirected event to notify that the redirection has been reset
+        //        emit InterestStreamRedirected(_user, address(0), 0, 0, 0);
+
+        //if the redirected balance is also 0, we clear up the user index
+        //        if (redirectedBalances[_user] == 0) {
+        userIndexes[_user] = 0;
+        return true;
+        //        } else {
+        //            return false;
+        //        }
     }
 }
