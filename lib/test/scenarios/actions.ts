@@ -96,7 +96,7 @@ export const transfer = async (
     `[Action: Transfer] User ${user} balance after transfer ${hre.ethers.formatUnits(
       userBalance,
       tokenDecimals,
-    )}`,
+    )} ${reserveSymbol}`,
   );
 };
 
@@ -431,11 +431,8 @@ export const repay = async (
 
     const { txCost, txTimestamp } = await getTxCostAndTimestamp(txResult);
 
-    const {
-      reserveData: reserveDataAfter,
-      userData: userDataAfter,
-      timestamp,
-    } = await getContractsData(reserve, onBehalfOf);
+    const { reserveData: reserveDataAfter, userData: userDataAfter } =
+      await getContractsData(reserve, onBehalfOf);
 
     const expectedReserveData = calcExpectedReserveDataAfterRepay(
       amountToRepay,

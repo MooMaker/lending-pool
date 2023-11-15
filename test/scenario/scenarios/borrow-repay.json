@@ -384,7 +384,6 @@
         }
       ]
     },
-
     {
       "description": "User 2 deposits 1 USDC to account for rounding errors",
       "actions": [
@@ -858,7 +857,7 @@
           "name": "transfer",
           "args": {
             "reserve": "DAI",
-            "amount" : "100",
+            "amount": "100",
             "user": "5"
           },
           "expected": "success"
