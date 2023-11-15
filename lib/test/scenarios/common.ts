@@ -8,12 +8,7 @@ import {
   LendingPoolCore,
 } from "../../../typechain-types";
 import { getTokenListForNetwork } from "../../utils/token";
-import {
-  MAINNET_ADDRESSES,
-  SYMBOLS,
-  TOKEN_DECIMALS,
-} from "../../constants/tokens";
-import { ATokenInfo } from "../../../scripts/2-token-actions/200_deploy_reserve_atokens";
+import { SYMBOLS, TOKEN_DECIMALS } from "../../constants/tokens";
 import { STRATEGY_VOLATILE_ONE } from "../../constants/reserves";
 import { CHAINLINK_ETH_PRICE_DATA_FEEDS } from "../../constants/oracles";
 
@@ -41,6 +36,9 @@ export async function getEnvironment(): Promise<{
     tokensPerAddress: tokenContractsPerAddress,
   };
 }
+
+// TODO: revisit with team. Why changing RESERVE_LTV to 80 leads to enough collateral?
+const RESERVE_LTV = "60";
 
 export async function setupContracts(): Promise<{
   addressesProvider: AddressesProvider;
@@ -249,7 +247,10 @@ export async function setupContracts(): Promise<{
         interestRateStrategy,
       );
 
-      await lendingPoolCore.enableReserveAsCollateral(tokenAddress);
+      await lendingPoolCore.enableReserveAsCollateral(
+        tokenAddress,
+        RESERVE_LTV,
+      );
     }
   };
 

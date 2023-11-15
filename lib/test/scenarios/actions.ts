@@ -352,7 +352,7 @@ export const borrow = async (
       throw new Error("Revert message is missing in scenario");
     }
 
-    const txResult = await lendingPool
+    const txResult = lendingPool
       .connect(user)
       .borrow(reserve, amountToBorrow, "0");
     await expect(txResult).to.be.revertedWith(revertMessage);

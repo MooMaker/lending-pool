@@ -849,12 +849,14 @@ contract LendingPoolCore is Initializable {
      * @param _reserve the address of the reserve
      **/
     function enableReserveAsCollateral(
-        address _reserve // TODO(liquidation): implement //        uint256 _baseLTVasCollateral, //        uint256 _liquidationThreshold, //        uint256 _liquidationBonus
-    ) external // TODO(liquidation): implement configurator
+        address _reserve,
+        uint256 _baseLTVasCollateral // TODO(liquidation): implement configurator
+    )
+        external
+    // TODO(liquidation): implement //        uint256 _liquidationThreshold, //        uint256 _liquidationBonus
     //        onlyLendingPoolConfigurator
     {
-        reserves[_reserve].enableAsCollateral();
-        //            _baseLTVasCollateral,
+        reserves[_reserve].enableAsCollateral(_baseLTVasCollateral);
         //            _liquidationThreshold,
         //            _liquidationBonus
     }
