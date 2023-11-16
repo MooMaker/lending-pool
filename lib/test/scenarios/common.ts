@@ -147,8 +147,10 @@ export async function setupContracts(): Promise<{
     await addressesProvider.setPriceOracle(
       await chainLinkProxyPriceProvider.getAddress(),
     );
-
     await addressesProvider.setFeeProviderImpl(await feeProvider.getAddress());
+    await addressesProvider.setTokenDistributor(
+      await tokenDistributor.getAddress(),
+    );
 
     // Initialize lending pool core
     await lendingPoolCore.initialize(addressesProvider);
