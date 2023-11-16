@@ -274,12 +274,10 @@ contract LendingPool is ReentrancyGuard, Initializable {
             "The collateral balance is 0"
         );
 
-        // TODO: implement
-        //        require(
-        //            !vars.healthFactorBelowThreshold,
-        //            "The borrower can already be liquidated so he cannot borrow more"
-        //        );
-        //
+        require(
+            !vars.healthFactorBelowThreshold,
+            "The borrower can already be liquidated so he cannot borrow more"
+        );
 
         //calculating fees
         vars.borrowFee = feeProvider.calculateLoanOriginationFee(
