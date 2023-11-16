@@ -14,8 +14,8 @@ import { ETH, SYMBOLS } from "../../lib/constants/tokens";
 import { STRATEGY_VOLATILE_ONE } from "../../lib/constants/reserves";
 
 const scenarioSpec = [
-  // DEPOSIT_SCENARIO as Scenario,
-  // BORROW_REPAY_SCENARIO as Scenario,
+  DEPOSIT_SCENARIOS as Scenario,
+  BORROW_REPAY_SCENARIOS as Scenario,
   REDEEM_SCENARIOS as Scenario,
   REDEEM_NEGATIVE_SCENARIOS as Scenario,
 ];
