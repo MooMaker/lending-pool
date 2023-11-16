@@ -1022,10 +1022,8 @@ contract LendingPoolCore is Initializable {
         address _reserve,
         uint256 _baseLTVasCollateral,
         uint256 _liquidationThreshold,
-        uint256 _liquidationBonus
-    ) external // TODO(liquidation): implement configurator
-    //        onlyLendingPoolConfigurator
-    {
+        uint256 _liquidationBonus // TODO(liquidation): implement configurator //        onlyLendingPoolConfigurator
+    ) external {
         reserves[_reserve].enableAsCollateral(
             _baseLTVasCollateral,
             _liquidationThreshold,

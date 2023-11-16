@@ -10,7 +10,6 @@ import {
 import { getTokenListForNetwork } from "../../utils/token";
 import { SYMBOLS, TOKEN_DECIMALS } from "../../constants/tokens";
 import { STRATEGY_VOLATILE_ONE } from "../../constants/reserves";
-import { CHAINLINK_ETH_PRICE_DATA_FEEDS } from "../../constants/oracles";
 
 export type TokenSymbol = string;
 export type TokenAddress = string;
