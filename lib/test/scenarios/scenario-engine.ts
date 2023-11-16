@@ -32,7 +32,8 @@ const executeAction = async (action: Action, users: string[]) => {
     throw `An expected result for action ${name} is required`;
   }
 
-  const userAddress = users[parseInt(user)];
+  const userIndex = parseInt(user);
+  const userAddress = users[userIndex];
 
   switch (name) {
     case "transfer": {
@@ -42,12 +43,12 @@ const executeAction = async (action: Action, users: string[]) => {
         throw `Invalid amount of ${reserve} to transfer`;
       }
 
-      await transfer(reserve, amount, userAddress);
+      await transfer(reserve, amount, userAddress, userIndex);
       break;
     }
 
     case "approve":
-      await approve(reserve, userAddress);
+      await approve(reserve, userAddress, userIndex);
       break;
 
     case "deposit": {
@@ -61,6 +62,7 @@ const executeAction = async (action: Action, users: string[]) => {
         reserve,
         amount,
         userAddress,
+        userIndex,
         sendValue,
         expected,
         revertMessage,
@@ -80,6 +82,7 @@ const executeAction = async (action: Action, users: string[]) => {
           reserve,
           amount,
           userAddress,
+          userIndex,
           timeTravel,
           expected,
           revertMessage,
@@ -95,7 +98,14 @@ const executeAction = async (action: Action, users: string[]) => {
           throw `Invalid amount to redeem from the ${reserve} reserve`;
         }
 
-        await redeem(reserve, amount, userAddress, expected, revertMessage);
+        await redeem(
+          reserve,
+          amount,
+          userAddress,
+          userIndex,
+          expected,
+          revertMessage,
+        );
       }
       break;
 
@@ -121,6 +131,7 @@ const executeAction = async (action: Action, users: string[]) => {
           reserve,
           amount,
           userAddress,
+          userIndex,
           onBehalfOf,
           sendValue,
           expected,

@@ -60,6 +60,7 @@ export const transfer = async (
   reserveSymbol: string,
   amount: string,
   user: string,
+  userIndex: number,
 ) => {
   const { tokens } = await getEnvironment();
 
@@ -89,20 +90,24 @@ export const transfer = async (
     `[Action: Transfer] Whale ${whaleAddress} with balance ${hre.ethers.formatUnits(
       whaleTokenBalance,
       tokenDecimals,
-    )} transfers ${amount} ${reserveSymbol} to ${user}`,
+    )} transfers ${amount} ${reserveSymbol} to user ${userIndex}`,
   );
   await tokenContract.connect(whale).transfer(user, tokensToTransfer);
 
   const userBalance = await tokenContract.balanceOf(user);
   console.log(
-    `[Action: Transfer] User ${user} balance after transfer ${hre.ethers.formatUnits(
+    `[Action: Transfer] User ${userIndex} balance after transfer ${hre.ethers.formatUnits(
       userBalance,
       tokenDecimals,
     )} ${reserveSymbol}`,
   );
 };
 
-export const approve = async (reserveSymbol: string, userAddress: string) => {
+export const approve = async (
+  reserveSymbol: string,
+  userAddress: string,
+  userIndex: number,
+) => {
   const { tokens } = await getEnvironment();
   const { lendingPoolCore } = _config.contracts;
 
@@ -128,7 +133,7 @@ export const approve = async (reserveSymbol: string, userAddress: string) => {
   const lendingPoolCoreAddress = await lendingPoolCore.getAddress();
 
   console.log(
-    `[Action: Approve] User ${userAddress} with balance ${hre.ethers.formatUnits(
+    `[Action: Approve] User ${userIndex} with balance ${hre.ethers.formatUnits(
       userBalance,
       tokenDecimals,
     )} ${reserveSymbol} approves spending to core ${lendingPoolCoreAddress}`,
@@ -152,6 +157,7 @@ export const deposit = async (
   reserveSymbol: string,
   amount: string,
   userAddress: string,
+  userIndex: number,
   sendValue: string | undefined,
   expectedResult: string,
   revertMessage?: string,
@@ -203,7 +209,7 @@ export const deposit = async (
   const user = await hre.ethers.getSigner(userAddress);
 
   console.log(
-    `[Action: Deposit] User ${userAddress} with balance of ${hre.ethers.formatUnits(
+    `[Action: Deposit] User ${userIndex} with balance of ${hre.ethers.formatUnits(
       balance,
       decimals,
     )} ${reserveSymbol} deposits ${amount} ${reserveSymbol} to the pool`,
@@ -267,6 +273,7 @@ export const borrow = async (
   reserveSymbol: string,
   amount: string,
   userAddress: string,
+  userIndex: number,
   timeTravel: string | undefined,
   expectedResult: string,
   revertMessage?: string,
@@ -297,7 +304,7 @@ export const borrow = async (
   const user = await hre.ethers.getSigner(userAddress);
 
   console.log(
-    `[Action: Borrow] User ${userAddress} borrows ${amount} ${reserveSymbol} from the pool`,
+    `[Action: Borrow] User ${userIndex} borrows ${amount} ${reserveSymbol} from the pool`,
   );
 
   if (expectedResult === "success") {
@@ -370,6 +377,7 @@ export const repay = async (
   reserveSymbol: string,
   amount: string,
   userAddress: string,
+  userIndex: number,
   onBehalfOf: string,
   sendValue: string | undefined,
   expectedResult: string,
@@ -425,7 +433,7 @@ export const repay = async (
   const user = await hre.ethers.getSigner(userAddress);
 
   console.log(
-    `[Action: Repay] User ${userAddress} repays ${amount} ${reserveSymbol} to the pool`,
+    `[Action: Repay] User ${userIndex} repays ${amount} ${reserveSymbol} to the pool`,
   );
 
   if (expectedResult === "success") {
@@ -486,6 +494,7 @@ export const redeem = async (
   reserveSymbol: string,
   amount: string,
   userAddress: string,
+  userIndex: number,
   expectedResult: string,
   revertMessage?: string,
 ) => {
@@ -507,7 +516,7 @@ export const redeem = async (
   const user = await hre.ethers.getSigner(userAddress);
 
   console.log(
-    `[Action: Redeem] User ${userAddress} redeems ${amount} ${reserveSymbol} from pool`,
+    `[Action: Redeem] User ${userIndex} redeems ${amount} ${reserveSymbol} from pool`,
   );
 
   if (expectedResult === "success") {
