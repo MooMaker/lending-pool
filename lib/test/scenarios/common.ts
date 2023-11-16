@@ -37,10 +37,14 @@ export async function getEnvironment(): Promise<{
   };
 }
 
-// TODO: revisit. Why changing RESERVE_LTV to 80 leads to enough collateral?
-const RESERVE_LTV = "60";
-const LIQUIDATION_THRESHOLD = "80";
-const LIQUIDATION_BONUS = "1";
+const RESERVE_LTV = 80n;
+const LIQUIDATION_THRESHOLD = 90n;
+const LIQUIDATION_BONUS = 1n;
+const MOCK_ETHER_PRICES = {
+  [SYMBOLS.DAI]: hre.ethers.parseEther("0.001"),
+  [SYMBOLS.USDC]: hre.ethers.parseEther("0.001"),
+  [SYMBOLS.LINK]: hre.ethers.parseEther("0.01"),
+};
 
 export async function setupContracts(): Promise<{
   addressesProvider: AddressesProvider;
@@ -114,15 +118,17 @@ export async function setupContracts(): Promise<{
         continue;
       }
 
-      const dataFeedAddress =
-        // TODO: rework to obtain for specific network?
-        CHAINLINK_ETH_PRICE_DATA_FEEDS.MAINNET.get(symbol);
-      if (!dataFeedAddress) {
-        throw new Error(`Data feed address for ${symbol} is not found.`);
+      const mockEthPrice = MOCK_ETHER_PRICES[symbol];
+      if (!mockEthPrice) {
+        throw new Error(`Mock ETH price for ${symbol} is not found.`);
       }
 
+      const dataAggregator = await hre.ethers
+        .getContractFactory("CLMockAggregator")
+        .then((factory) => factory.deploy(mockEthPrice));
+
       reserveAddresses.push(address);
-      dataFeedAddresses.push(dataFeedAddress);
+      dataFeedAddresses.push(await dataAggregator.getAddress());
     }
 
     const chainLinkProxyPriceProviderFactory =

@@ -703,7 +703,7 @@
       ]
     },
     {
-      "description": "User 4 deposits 1000 DAI, user 5 deposits 0.92267103215 ETH, tries to borrow 187.5 DAI which is the maximum amount he can borrow, if fees were not considered. (revert expected)",
+      "description": "User 4 deposits 1000 DAI, user 5 deposits 0.23496093749 ETH, tries to borrow 187.5 DAI which is the maximum amount he can borrow, if fees were not considered. (revert expected)",
       "actions": [
         {
           "name": "transfer",
@@ -735,9 +735,9 @@
           "name": "deposit",
           "args": {
             "reserve": "ETH",
-            "amount": "0.92267103215",
+            "amount": "0.23496093749",
             "user": "5",
-            "sendValue": "0.92267103215"
+            "sendValue": "0.23496093749"
           },
           "expected": "success"
         },
@@ -772,7 +772,7 @@
       ]
     },
     {
-      "description": "User 4 deposits 1000 USDC, user 5 deposits 0.91928534104 ETH, tries to borrow 187.5 USDC which is the maximum amount he can borrow, if fees were not considered. (revert expected)",
+      "description": "User 4 deposits 1000 USDC, user 5 deposits 0.23496093749 ETH, tries to borrow 187.5 USDC which is the maximum amount he can borrow, if fees were not considered. (revert expected)",
       "actions": [
         {
           "name": "transfer",
@@ -804,9 +804,9 @@
           "name": "deposit",
           "args": {
             "reserve": "ETH",
-            "amount": "0.91928534104",
+            "amount": "0.23496093749",
             "user": "5",
-            "sendValue": "0.91928534104"
+            "sendValue": "0.23496093749"
           },
           "expected": "success"
         },
