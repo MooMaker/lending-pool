@@ -377,7 +377,7 @@ contract LendingPool is ReentrancyGuard, Initializable {
 
         require(
             _amount != UINT_MAX_VALUE || msg.sender == _onBehalfOf,
-            "To repay on behalf of an user an explicit amount to repay is needed."
+            "To repay on behalf of an user an explicit amount to repay is needed"
         );
 
         //default to max amount
