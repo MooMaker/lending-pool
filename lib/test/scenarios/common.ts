@@ -111,6 +111,13 @@ export async function setupContracts(): Promise<{
     const dataFeedAddresses: string[] = [];
 
     const tokenList = getTokenListForNetwork(hre.network);
+
+    // Deploy fallback oracle
+    const fallbackOracle = await hre.ethers
+      .getContractFactory("PriceOracle")
+      .then((factory) => factory.deploy());
+
+    // Setup Chainlink data feeds
     const entries = tokenList.entries();
     for (const [symbol, address] of entries) {
       // No need for data feed for ETH
@@ -121,6 +128,12 @@ export async function setupContracts(): Promise<{
       const mockEthPrice = MOCK_ETHER_PRICES[symbol];
       if (!mockEthPrice) {
         throw new Error(`Mock ETH price for ${symbol} is not found.`);
+      }
+
+      // Provide LINK price via fallback oracle
+      if (symbol === SYMBOLS.LINK) {
+        await fallbackOracle.setAssetPrice(address, mockEthPrice);
+        continue;
       }
 
       const dataAggregator = await hre.ethers
@@ -136,6 +149,7 @@ export async function setupContracts(): Promise<{
     return chainLinkProxyPriceProviderFactory.deploy(
       reserveAddresses,
       dataFeedAddresses,
+      await fallbackOracle.getAddress(),
     );
   };
 
