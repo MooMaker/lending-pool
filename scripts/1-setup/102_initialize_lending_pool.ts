@@ -22,6 +22,6 @@ const setupFunction: DeployFunction = async function (
   );
 };
 
-setupFunction.tags = ["lending-pool", "setup-base-contracts"];
+setupFunction.tags = [];
 
 export default setupFunction;

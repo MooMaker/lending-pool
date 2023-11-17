@@ -14,22 +14,35 @@ const setupFunction: DeployFunction = async function (
 
   const lendingPoolCore = await deployments.get("LendingPoolCore");
   const lendingPool = await deployments.get("LendingPool");
-
-  await hre.deployments.execute(
-    "AddressesProvider",
-    txSettings,
-    "setLendingPoolCoreImpl",
-    lendingPoolCore.address,
+  const lendingPoolDataProvider = await deployments.get(
+    "LendingPoolDataProvider",
   );
-
-  await hre.deployments.execute(
-    "AddressesProvider",
-    txSettings,
-    "setLendingPoolImpl",
-    lendingPool.address,
+  const chainLinkProxyPriceProvider = await deployments.get(
+    "ChainLinkProxyPriceProvider",
   );
+  const feeProvider = await deployments.get("FeeProvider");
+  const tokenDistributor = await deployments.get("TokenDistributor");
+
+  const execute = async (methodName: string, ...args: unknown[]) => {
+    await hre.deployments.execute(
+      "AddressesProvider",
+      txSettings,
+      methodName,
+      ...args,
+    );
+  };
+
+  await execute("setLendingPoolCoreImpl", lendingPoolCore.address);
+  await execute("setLendingPoolImpl", lendingPool.address);
+  await execute(
+    "setLendingPoolDataProviderImpl",
+    lendingPoolDataProvider.address,
+  );
+  await execute("setPriceOracle", chainLinkProxyPriceProvider.address);
+  await execute("setFeeProviderImpl", feeProvider.address);
+  await execute("setTokenDistributor", tokenDistributor.address);
 };
 
-setupFunction.tags = ["addresses-provider", "setup-base-contracts"];
+setupFunction.tags = [];
 
 export default setupFunction;

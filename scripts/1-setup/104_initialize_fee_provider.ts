@@ -15,7 +15,7 @@ const setupFunction: DeployFunction = async function (
   const addressesProvider = await deployments.get("AddressesProvider");
 
   await hre.deployments.execute(
-    "LendingPoolCore",
+    "FeeProvider",
     txSettings,
     "initialize",
     addressesProvider.address,

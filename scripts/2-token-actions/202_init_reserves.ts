@@ -1,6 +1,13 @@
 import { DeployFunction } from "hardhat-deploy/types";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { getTokenListForNetwork } from "../../lib/utils/token";
+import { SYMBOLS } from "../../lib/constants/tokens";
+
+const RESERVES = [SYMBOLS.ETH, SYMBOLS.DAI, SYMBOLS.USDC, SYMBOLS.LINK];
+const RESERVE_LTV = 80n;
+const LIQUIDATION_THRESHOLD = 90n;
+const LIQUIDATION_BONUS = 1n;
+
 const setupFunction: DeployFunction = async function (
   hre: HardhatRuntimeEnvironment,
 ) {
@@ -9,32 +16,13 @@ const setupFunction: DeployFunction = async function (
 
   const tokenList = getTokenListForNetwork(hre.network);
 
-  const reservesList = [
-    {
-      tokenSymbol: "ETH",
-      tokenAddress: tokenList.get("ETH"),
-      strategy: await deployments.get("ETHInterestRateStrategy"),
-      aToken: await deployments.get("aETH"),
-    },
-    {
-      tokenSymbol: "USDC",
-      tokenAddress: tokenList.get("USDC"),
-      strategy: await deployments.get("USDCInterestRateStrategy"),
-      aToken: await deployments.get("aUSDC"),
-    },
-    {
-      tokenSymbol: "DAI",
-      tokenAddress: tokenList.get("DAI"),
-      strategy: await deployments.get("DAIInterestRateStrategy"),
-      aToken: await deployments.get("aDAI"),
-    },
-  ];
-
-  for (const reserveInfo of reservesList) {
-    const { tokenSymbol, tokenAddress, strategy, aToken } = reserveInfo;
+  for (const symbol of RESERVES) {
+    const reserveAddress = tokenList.get(symbol);
+    const strategy = await deployments.get(`${symbol}InterestRateStrategy`);
+    const aToken = await deployments.get(`a${symbol}`);
 
     const decimals = await deployments.read(
-      `a${tokenSymbol}`,
+      `a${symbol}`,
       { from: deployer },
       "decimals",
     );
@@ -43,11 +31,23 @@ const setupFunction: DeployFunction = async function (
       "LendingPoolCore",
       { from: deployer, log: true },
       "initReserve",
-      ...[tokenAddress, aToken.address, decimals, strategy.address],
+      ...[reserveAddress, aToken.address, decimals, strategy.address],
+    );
+
+    await deployments.execute(
+      "LendingPoolCore",
+      { from: deployer, log: true },
+      "enableReserveAsCollateral",
+      ...[
+        reserveAddress,
+        RESERVE_LTV,
+        LIQUIDATION_THRESHOLD,
+        LIQUIDATION_BONUS,
+      ],
     );
   }
 };
 
-setupFunction.tags = ["reserves", "interest-rate-strategy", "token-actions"];
+setupFunction.tags = [];
 
 export default setupFunction;

@@ -39,6 +39,7 @@ export async function getEnvironment(): Promise<{
 const RESERVE_LTV = 80n;
 const LIQUIDATION_THRESHOLD = 90n;
 const LIQUIDATION_BONUS = 1n;
+
 const MOCK_ETHER_PRICES = {
   [SYMBOLS.DAI]: hre.ethers.parseEther("0.001"),
   [SYMBOLS.USDC]: hre.ethers.parseEther("0.001"),
