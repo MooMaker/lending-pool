@@ -1,10 +1,8 @@
 import { DeployFunction } from "hardhat-deploy/types";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { getTokenListForNetwork } from "../../lib/utils/token";
-import { writeToJSON } from "../../lib/test/utils";
 import { STRATEGY_VOLATILE_ONE } from "../../lib/constants/reserves";
 import { SYMBOLS } from "../../lib/constants/tokens";
-import { getDeployOutputFileName } from "../../lib/deploy/utils";
 
 const TOKEN_STRATEGIES = {
   [SYMBOLS.ETH]: STRATEGY_VOLATILE_ONE,
@@ -31,7 +29,7 @@ const setupFunction: DeployFunction = async function (
     }
 
     const name = `${symbol}InterestRateStrategy`;
-    const deployment = await deployments.deploy(name, {
+    await deployments.deploy(name, {
       contract:
         "contracts/DefaultReserveInterestRateStrategy.sol:DefaultReserveInterestRateStrategy",
       from: deployer,
@@ -43,10 +41,6 @@ const setupFunction: DeployFunction = async function (
         `0x${strategy.variableRateSlope1.toString(16)}`,
         `0x${strategy.variableRateSlope2.toString(16)}`,
       ],
-    });
-
-    await writeToJSON(`./${getDeployOutputFileName(hre.network.name)}`, {
-      [name]: deployment.address,
     });
   }
 };

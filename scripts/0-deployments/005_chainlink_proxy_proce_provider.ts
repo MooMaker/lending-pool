@@ -1,10 +1,8 @@
 import { DeployFunction } from "hardhat-deploy/types";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { writeToJSON } from "../../lib/test/utils";
 import { getTokenListForNetwork } from "../../lib/utils/token";
 import { SYMBOLS } from "../../lib/constants/tokens";
 import { getChainlinkDataFeedsForNetwork } from "../../lib/utils/oracle";
-import { getDeployOutputFileName } from "../../lib/deploy/utils";
 
 // Tokens to follow feeds of
 const TOKENS = [SYMBOLS.DAI, SYMBOLS.USDC, SYMBOLS.LINK];
@@ -37,16 +35,12 @@ const deployFunction: DeployFunction = async function (
   }
 
   const name = "ChainLinkProxyPriceProvider";
-  const deployment = await deploy(name, {
+  await deploy(name, {
     contract:
       "contracts/misc/ChainlinkProxyPriceProvider.sol:ChainLinkProxyPriceProvider",
     from: deployer,
     log: true,
     args: [reserveAddresses, dataFeedAddresses],
-  });
-
-  await writeToJSON(`./${getDeployOutputFileName(hre.network.name)}`, {
-    [name]: deployment.address,
   });
 };
 

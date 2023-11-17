@@ -1,10 +1,6 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { Deployment, DeployResult } from "hardhat-deploy/dist/types";
 
-export const getDeployOutputFileName = (network: string): string => {
-  return `deploy-output.${network}.json`;
-};
-
 export const verifyContract = async (
   hre: HardhatRuntimeEnvironment,
   deploy: DeployResult | Deployment,
