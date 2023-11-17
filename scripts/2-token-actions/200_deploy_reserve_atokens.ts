@@ -3,6 +3,7 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { getTokenListForNetwork } from "../../lib/utils/token";
 import { writeToJSON } from "../../lib/test/utils";
 import { SYMBOLS, TOKEN_DECIMALS } from "../../lib/constants/tokens";
+import { getDeployOutputFileName } from "../../lib/deploy/utils";
 
 export type ATokenInfo = {
   symbol: string;
@@ -51,7 +52,7 @@ const setupFunction: DeployFunction = async function (
       ],
     });
 
-    await writeToJSON("./deploy.config.json", {
+    await writeToJSON(`./${getDeployOutputFileName(hre.network.name)}`, {
       [aTokenSymbol]: deployment.address,
       [symbol]: reserveAddress,
     });

@@ -11,4 +11,5 @@ artifacts
 
 .idea
 deploy.config.json
+deploy-output.*.json
 deployments

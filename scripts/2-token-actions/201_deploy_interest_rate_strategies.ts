@@ -4,6 +4,7 @@ import { getTokenListForNetwork } from "../../lib/utils/token";
 import { writeToJSON } from "../../lib/test/utils";
 import { STRATEGY_VOLATILE_ONE } from "../../lib/constants/reserves";
 import { SYMBOLS } from "../../lib/constants/tokens";
+import { getDeployOutputFileName } from "../../lib/deploy/utils";
 
 const TOKEN_STRATEGIES = {
   [SYMBOLS.ETH]: STRATEGY_VOLATILE_ONE,
@@ -44,7 +45,7 @@ const setupFunction: DeployFunction = async function (
       ],
     });
 
-    await writeToJSON("./deploy.config.json", {
+    await writeToJSON(`./${getDeployOutputFileName(hre.network.name)}`, {
       [name]: deployment.address,
     });
   }

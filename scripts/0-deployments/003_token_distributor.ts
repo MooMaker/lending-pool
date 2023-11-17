@@ -1,6 +1,7 @@
 import { DeployFunction } from "hardhat-deploy/types";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { writeToJSON } from "../../lib/test/utils";
+import { getDeployOutputFileName } from "../../lib/deploy/utils";
 
 const deployFunction: DeployFunction = async function (
   hre: HardhatRuntimeEnvironment,
@@ -16,7 +17,7 @@ const deployFunction: DeployFunction = async function (
     args: [],
   });
 
-  await writeToJSON("./deploy.config.json", {
+  await writeToJSON(`./${getDeployOutputFileName(hre.network.name)}`, {
     [name]: deployment.address,
   });
 };

@@ -4,6 +4,7 @@ import { writeToJSON } from "../../lib/test/utils";
 import { getTokenListForNetwork } from "../../lib/utils/token";
 import { SYMBOLS } from "../../lib/constants/tokens";
 import { getChainlinkDataFeedsForNetwork } from "../../lib/utils/oracle";
+import { getDeployOutputFileName } from "../../lib/deploy/utils";
 
 // Tokens to follow feeds of
 const TOKENS = [SYMBOLS.DAI, SYMBOLS.USDC, SYMBOLS.LINK];
@@ -44,7 +45,7 @@ const deployFunction: DeployFunction = async function (
     args: [reserveAddresses, dataFeedAddresses],
   });
 
-  await writeToJSON("./deploy.config.json", {
+  await writeToJSON(`./${getDeployOutputFileName(hre.network.name)}`, {
     [name]: deployment.address,
   });
 };
