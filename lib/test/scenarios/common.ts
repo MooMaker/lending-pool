@@ -8,8 +8,7 @@ import {
   LendingPoolCore,
 } from "../../../typechain-types";
 import { getTokenListForNetwork } from "../../utils/token";
-import { TOKEN_DECIMALS } from "../../constants/tokens";
-import { ATokenInfo } from "../../../scripts/2-token-actions/200_deploy_reserve_atokens";
+import { SYMBOLS, TOKEN_DECIMALS } from "../../constants/tokens";
 import { STRATEGY_VOLATILE_ONE } from "../../constants/reserves";
 
 export type TokenSymbol = string;
@@ -21,31 +20,31 @@ export async function getEnvironment(): Promise<{
 }> {
   const tokenList = getTokenListForNetwork(hre.network);
 
-  const usdcAddress = tokenList.get("USDC");
-  const daiAddress = tokenList.get("DAI");
+  const tokenContracts: Map<string, ERC20> = new Map<string, ERC20>();
+  const tokenContractsPerAddress = new Map<string, ERC20>();
 
-  if (!usdcAddress || !daiAddress) {
-    throw new Error(
-      `Address for one of the tokens is not found.\nUSDC: ${usdcAddress}\nDAI: ${daiAddress}`,
-    );
+  const entries = tokenList.entries();
+  for (const [symbol, address] of entries) {
+    const token = await hre.ethers.getContractAt("ERC20", address);
+    tokenContracts.set(symbol, token);
+    tokenContractsPerAddress.set(address, token);
   }
 
-  const usdc = await hre.ethers.getContractAt("ERC20", usdcAddress);
-  const dai = await hre.ethers.getContractAt("ERC20", daiAddress);
-
-  const tokens: Map<string, ERC20> = new Map<string, ERC20>();
-  tokens.set("USDC", usdc);
-  tokens.set("DAI", dai);
-
-  const tokensPerAddress = new Map<string, ERC20>();
-  tokensPerAddress.set(usdcAddress, usdc);
-  tokensPerAddress.set(daiAddress, dai);
-
   return {
-    tokens,
-    tokensPerAddress,
+    tokens: tokenContracts,
+    tokensPerAddress: tokenContractsPerAddress,
   };
 }
+
+const RESERVE_LTV = 80n;
+const LIQUIDATION_THRESHOLD = 90n;
+const LIQUIDATION_BONUS = 1n;
+
+const MOCK_ETHER_PRICES = {
+  [SYMBOLS.DAI]: hre.ethers.parseEther("0.001"),
+  [SYMBOLS.USDC]: hre.ethers.parseEther("0.001"),
+  [SYMBOLS.LINK]: hre.ethers.parseEther("0.01"),
+};
 
 export async function setupContracts(): Promise<{
   addressesProvider: AddressesProvider;
@@ -55,30 +54,92 @@ export async function setupContracts(): Promise<{
   aTokensPerAddress: Map<string, AToken>;
   interestRateStrategies: Map<string, DefaultReserveInterestRateStrategy>;
 }> {
-  const deploy = async () => {
-    const addressesProviderFactory = await hre.ethers.getContractFactory(
-      "AddressesProvider",
-    );
-    const addressesProvider = await addressesProviderFactory.deploy();
+  const deployContracts = async () => {
+    const coreLibrary = await hre.ethers
+      .getContractFactory("CoreLibrary")
+      .then((factory) => factory.deploy());
 
-    const lendingPoolFactory = await hre.ethers.getContractFactory(
-      "LendingPool",
-    );
-    const lendingPool = await lendingPoolFactory.deploy();
+    const addressesProvider = await hre.ethers
+      .getContractFactory("AddressesProvider")
+      .then((factory) => factory.deploy());
 
-    const lendingPoolCoreFactory = await hre.ethers.getContractFactory(
-      "LendingPoolCore",
-    );
-    const lendingPoolCore = await lendingPoolCoreFactory.deploy();
+    const feeProvider = await hre.ethers
+      .getContractFactory("FeeProvider")
+      .then((factory) => factory.deploy());
+
+    const tokenDistributor = await hre.ethers
+      .getContractFactory("TokenDistributor")
+      .then((factory) => factory.deploy());
+
+    const lendingPool = await hre.ethers
+      .getContractFactory("LendingPool")
+      .then((factory) => factory.deploy());
+
+    const lendingPoolCore = await hre.ethers
+      .getContractFactory("LendingPoolCore", {
+        libraries: {
+          CoreLibrary: await coreLibrary.getAddress(),
+        },
+      })
+      .then((factory) => factory.deploy());
+
+    const lendingPoolDataProvider = await hre.ethers
+      .getContractFactory("LendingPoolDataProvider")
+      .then((factory) => factory.deploy());
 
     return {
       addressesProvider,
       lendingPool,
       lendingPoolCore,
+      lendingPoolDataProvider,
+      feeProvider,
+      tokenDistributor,
     };
   };
 
-  const { addressesProvider, lendingPool, lendingPoolCore } = await deploy();
+  const {
+    addressesProvider,
+    lendingPool,
+    lendingPoolCore,
+    lendingPoolDataProvider,
+    feeProvider,
+    tokenDistributor,
+  } = await deployContracts();
+
+  const deployChainlinkPriceOracle = async () => {
+    const reserveAddresses: string[] = [];
+    const dataFeedAddresses: string[] = [];
+
+    const tokenList = getTokenListForNetwork(hre.network);
+    const entries = tokenList.entries();
+    for (const [symbol, address] of entries) {
+      // No need for data feed for ETH
+      if (symbol === SYMBOLS.ETH) {
+        continue;
+      }
+
+      const mockEthPrice = MOCK_ETHER_PRICES[symbol];
+      if (!mockEthPrice) {
+        throw new Error(`Mock ETH price for ${symbol} is not found.`);
+      }
+
+      const dataAggregator = await hre.ethers
+        .getContractFactory("CLMockAggregator")
+        .then((factory) => factory.deploy(mockEthPrice));
+
+      reserveAddresses.push(address);
+      dataFeedAddresses.push(await dataAggregator.getAddress());
+    }
+
+    const chainLinkProxyPriceProviderFactory =
+      await hre.ethers.getContractFactory("ChainLinkProxyPriceProvider");
+    return chainLinkProxyPriceProviderFactory.deploy(
+      reserveAddresses,
+      dataFeedAddresses,
+    );
+  };
+
+  const chainLinkProxyPriceProvider = await deployChainlinkPriceOracle();
 
   const setup = async () => {
     // Setup addresses provider
@@ -86,80 +147,65 @@ export async function setupContracts(): Promise<{
       await lendingPoolCore.getAddress(),
     );
     await addressesProvider.setLendingPoolImpl(await lendingPool.getAddress());
+    await addressesProvider.setLendingPoolDataProviderImpl(
+      await lendingPoolDataProvider.getAddress(),
+    );
+    await addressesProvider.setPriceOracle(
+      await chainLinkProxyPriceProvider.getAddress(),
+    );
+    await addressesProvider.setFeeProviderImpl(await feeProvider.getAddress());
+    await addressesProvider.setTokenDistributor(
+      await tokenDistributor.getAddress(),
+    );
 
     // Initialize lending pool core
     await lendingPoolCore.initialize(addressesProvider);
 
     // Initialize lending pool
     await lendingPool.initialize(addressesProvider);
+
+    // Initialize data provider
+    await lendingPoolDataProvider.initialize(addressesProvider);
+
+    // Initialize fee provider
+    await feeProvider.initialize(addressesProvider);
+
+    const [owner] = await hre.ethers.getSigners();
+    // Initialize token distributor with one beneficiary
+    await tokenDistributor.initialize([owner.address], [100]);
   };
 
   await setup();
 
   const deployATokens = async () => {
-    const tokenList = getTokenListForNetwork(hre.network);
-
     const tokenPrefix = "a";
-
-    const ethAddress = tokenList.get("ETH");
-    const usdcAddress = tokenList.get("USDC");
-    const daiAddress = tokenList.get("DAI");
-
-    if (!ethAddress || !usdcAddress || !daiAddress) {
-      throw new Error(
-        `One of the token addresses is missing: \nETH: ${ethAddress}\nUSDC: ${usdcAddress}\nDAI: ${daiAddress}\nPlease check the token list in 'lib/utils/token.ts`,
-      );
-    }
-
-    const [ethDecimals, usdcDecimals, daiDecimals] = [
-      TOKEN_DECIMALS.get("ETH"),
-      TOKEN_DECIMALS.get("USDC"),
-      TOKEN_DECIMALS.get("DAI"),
-    ];
-    if (!ethDecimals || !usdcDecimals || !daiDecimals) {
-      throw new Error(
-        `One of the token decimals is missing: \nETH: ${ethDecimals}\nUSDC: ${usdcDecimals}\nDAI: ${daiDecimals}\nPlease check the token decimals in 'lib/constants/tokens.ts`,
-      );
-    }
-
-    const TOKENS: ATokenInfo[] = [
-      {
-        symbol: "ETH",
-        name: "Liquorice interest bearing ETH",
-        underlyingAssetAddress: ethAddress,
-        decimals: ethDecimals,
-      },
-      {
-        symbol: "USDC",
-        name: "Liquorice interest bearing USDC",
-        underlyingAssetAddress: usdcAddress,
-        decimals: usdcDecimals,
-      },
-      {
-        symbol: "DAI",
-        name: "Liquorice interest bearing DAI",
-        underlyingAssetAddress: daiAddress,
-        decimals: daiDecimals,
-      },
-    ];
 
     const aTokensPerSymbol: Map<string, AToken> = new Map<string, AToken>();
     const aTokensPerAddress: Map<string, AToken> = new Map<string, AToken>();
 
-    for (const token of TOKENS) {
-      const name = `${tokenPrefix}${token.symbol}`;
+    const tokenList = getTokenListForNetwork(hre.network);
+    const entries = tokenList.entries();
+    for (const [symbol, tokenAddress] of entries) {
+      const decimals = TOKEN_DECIMALS.get(symbol);
+      if (!decimals) {
+        throw new Error(`Decimals for ${symbol} is not found.`);
+      }
+
+      const name = `Liquorice interest bearing ${symbol}`;
+
+      const aTokenSymbol = `${tokenPrefix}${symbol}`;
       const aTokenFactory = await hre.ethers.getContractFactory("AToken");
+
       const aToken = await aTokenFactory.deploy(
         addressesProvider,
-        token.underlyingAssetAddress,
-        token.decimals,
-        token.name,
-        token.symbol,
+        tokenAddress,
+        decimals,
+        name,
+        aTokenSymbol,
       );
 
       const address = await aToken.getAddress();
-
-      aTokensPerSymbol.set(name, aToken);
+      aTokensPerSymbol.set(aTokenSymbol, aToken);
       aTokensPerAddress.set(address, aToken);
     }
 
@@ -169,54 +215,27 @@ export async function setupContracts(): Promise<{
   const { aTokensPerSymbol, aTokensPerAddress } = await deployATokens();
 
   const deployInterestRateStrategies = async () => {
-    const tokenList = getTokenListForNetwork(hre.network);
-
-    const ethAddress = tokenList.get("ETH");
-    const usdcAddress = tokenList.get("USDC");
-    const daiAddress = tokenList.get("DAI");
-
-    if (!ethAddress || !usdcAddress || !daiAddress) {
-      throw new Error(
-        `One of the token addresses is missing: \nETH: ${ethAddress}\nUSDC: ${usdcAddress}\nDAI: ${daiAddress}\nPlease check the token list in 'lib/utils/token.ts`,
-      );
-    }
-
-    const strategyInfoList = [
-      {
-        tokenSymbol: "ETH",
-        tokenAddress: ethAddress,
-        strategy: STRATEGY_VOLATILE_ONE,
-      },
-      {
-        tokenSymbol: "USDC",
-        tokenAddress: usdcAddress,
-        strategy: STRATEGY_VOLATILE_ONE,
-      },
-      {
-        tokenSymbol: "DAI",
-        tokenAddress: daiAddress,
-        strategy: STRATEGY_VOLATILE_ONE,
-      },
-    ];
-
     const interestRateStrategies = new Map<
       string,
       DefaultReserveInterestRateStrategy
     >();
-    for (const strategyInfo of strategyInfoList) {
-      const { tokenSymbol, tokenAddress, strategy } = strategyInfo;
-      const name = `${tokenSymbol}InterestRateStrategy`;
+
+    const tokenList = getTokenListForNetwork(hre.network);
+    const entries = tokenList.entries();
+    for (const [symbol, tokenAddress] of entries) {
+      const name = `${symbol}InterestRateStrategy`;
 
       const interestRateStrategyFactory = await hre.ethers.getContractFactory(
         "DefaultReserveInterestRateStrategy",
       );
+
       const interestRateStrategy = await interestRateStrategyFactory.deploy(
         tokenAddress,
         addressesProvider,
         // TODO: consider reworking with big number
-        `0x${strategy.baseVariableBorrowRate.toString(16)}`,
-        `0x${strategy.variableRateSlope1.toString(16)}`,
-        `0x${strategy.variableRateSlope2.toString(16)}`,
+        `0x${STRATEGY_VOLATILE_ONE.baseVariableBorrowRate.toString(16)}`,
+        `0x${STRATEGY_VOLATILE_ONE.variableRateSlope1.toString(16)}`,
+        `0x${STRATEGY_VOLATILE_ONE.variableRateSlope2.toString(16)}`,
       );
 
       interestRateStrategies.set(name, interestRateStrategy);
@@ -229,72 +248,19 @@ export async function setupContracts(): Promise<{
 
   const initReserves = async () => {
     const tokenList = getTokenListForNetwork(hre.network);
-
-    const ethAddress = tokenList.get("ETH");
-    const usdcAddress = tokenList.get("USDC");
-    const daiAddress = tokenList.get("DAI");
-
-    if (!ethAddress || !usdcAddress || !daiAddress) {
-      throw new Error(
-        `One of the token addresses is missing: \nETH: ${ethAddress}\nUSDC: ${usdcAddress}\nDAI: ${daiAddress}\nPlease check the token list in 'lib/utils/token.ts`,
+    const entries = tokenList.entries();
+    for (const [symbol, tokenAddress] of entries) {
+      const interestRateStrategy = interestRateStrategies.get(
+        `${symbol}InterestRateStrategy`,
       );
-    }
+      if (!interestRateStrategy) {
+        throw new Error(`Interest rate strategy for ${symbol} is not found.`);
+      }
 
-    const [
-      ethInterestRateStrategy,
-      usdcInterestRateStrategy,
-      daiInterestRateStrategy,
-    ] = [
-      interestRateStrategies.get("ETHInterestRateStrategy"),
-      interestRateStrategies.get("USDCInterestRateStrategy"),
-      interestRateStrategies.get("DAIInterestRateStrategy"),
-    ];
-
-    if (
-      !ethInterestRateStrategy ||
-      !usdcInterestRateStrategy ||
-      !daiInterestRateStrategy
-    ) {
-      throw new Error(
-        `One of the interest rate strategies is missing: \nETH: ${ethInterestRateStrategy}\nUSDC: ${usdcInterestRateStrategy}\nDAI: ${daiInterestRateStrategy}\nPlease check the interest rate strategies in 'lib/test/scenarios/common.ts`,
-      );
-    }
-
-    const [aETH, aUSDC, aDAI] = [
-      aTokensPerSymbol.get("aETH"),
-      aTokensPerSymbol.get("aUSDC"),
-      aTokensPerSymbol.get("aDAI"),
-    ];
-
-    if (!aETH || !aUSDC || !aDAI) {
-      throw new Error(
-        `One of the aTokens is missing: \nETH: ${aETH}\nUSDC: ${aUSDC}\nDAI: ${aDAI}\nPlease check the aTokens in 'lib/test/scenarios/common.ts`,
-      );
-    }
-
-    const reservesList = [
-      {
-        tokenSymbol: "ETH",
-        tokenAddress: ethAddress,
-        strategy: ethInterestRateStrategy,
-        aToken: aETH,
-      },
-      {
-        tokenSymbol: "USDC",
-        tokenAddress: usdcAddress,
-        strategy: usdcInterestRateStrategy,
-        aToken: aUSDC,
-      },
-      {
-        tokenSymbol: "DAI",
-        tokenAddress: daiAddress,
-        strategy: daiInterestRateStrategy,
-        aToken: aDAI,
-      },
-    ];
-
-    for (const reserveInfo of reservesList) {
-      const { tokenAddress, strategy, aToken } = reserveInfo;
+      const aToken = aTokensPerSymbol.get(`a${symbol}`);
+      if (!aToken) {
+        throw new Error(`aToken for ${symbol} is not found.`);
+      }
 
       const decimals = await aToken.decimals();
 
@@ -302,7 +268,14 @@ export async function setupContracts(): Promise<{
         tokenAddress,
         aToken,
         decimals,
-        strategy,
+        interestRateStrategy,
+      );
+
+      await lendingPoolCore.enableReserveAsCollateral(
+        tokenAddress,
+        RESERVE_LTV,
+        LIQUIDATION_THRESHOLD,
+        LIQUIDATION_BONUS,
       );
     }
   };

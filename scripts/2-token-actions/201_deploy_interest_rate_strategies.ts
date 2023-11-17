@@ -3,6 +3,14 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { getTokenListForNetwork } from "../../lib/utils/token";
 import { writeToJSON } from "../../lib/test/utils";
 import { STRATEGY_VOLATILE_ONE } from "../../lib/constants/reserves";
+import { SYMBOLS } from "../../lib/constants/tokens";
+
+const TOKEN_STRATEGIES = {
+  [SYMBOLS.ETH]: STRATEGY_VOLATILE_ONE,
+  [SYMBOLS.USDC]: STRATEGY_VOLATILE_ONE,
+  [SYMBOLS.DAI]: STRATEGY_VOLATILE_ONE,
+  [SYMBOLS.LINK]: STRATEGY_VOLATILE_ONE,
+};
 
 const setupFunction: DeployFunction = async function (
   hre: HardhatRuntimeEnvironment,
@@ -10,39 +18,25 @@ const setupFunction: DeployFunction = async function (
   const { deployer } = await hre.getNamedAccounts();
   const { deployments } = hre;
 
-  const tokenList = getTokenListForNetwork(hre.network);
-
-  const strategyInfoList = [
-    {
-      // TODO: refactor to use SYMBOLS constant
-      tokenSymbol: "ETH",
-      tokenAddress: tokenList.get("ETH"),
-      strategy: STRATEGY_VOLATILE_ONE,
-    },
-    {
-      tokenSymbol: "USDC",
-      tokenAddress: tokenList.get("USDC"),
-      strategy: STRATEGY_VOLATILE_ONE,
-    },
-    {
-      tokenSymbol: "DAI",
-      tokenAddress: tokenList.get("DAI"),
-      strategy: STRATEGY_VOLATILE_ONE,
-    },
-  ];
-
   const addressesProvider = await deployments.get("AddressesProvider");
 
-  for (const strategyInfo of strategyInfoList) {
-    const { tokenSymbol, tokenAddress, strategy } = strategyInfo;
-    const name = `${tokenSymbol}InterestRateStrategy`;
+  const tokenList = getTokenListForNetwork(hre.network);
+
+  const entries = Object.entries(TOKEN_STRATEGIES);
+  for (const [symbol, strategy] of entries) {
+    const reserveAddress = tokenList.get(symbol);
+    if (!reserveAddress) {
+      throw `Token ${symbol} is missing from the token list`;
+    }
+
+    const name = `${symbol}InterestRateStrategy`;
     const deployment = await deployments.deploy(name, {
       contract:
         "contracts/DefaultReserveInterestRateStrategy.sol:DefaultReserveInterestRateStrategy",
       from: deployer,
       log: true,
       args: [
-        tokenAddress,
+        reserveAddress,
         addressesProvider.address,
         `0x${strategy.baseVariableBorrowRate.toString(16)}`,
         `0x${strategy.variableRateSlope1.toString(16)}`,
@@ -56,6 +50,6 @@ const setupFunction: DeployFunction = async function (
   }
 };
 
-setupFunction.tags = ["reserves", "interest-rate-strategy", "token-actions"];
+setupFunction.tags = [];
 
 export default setupFunction;

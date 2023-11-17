@@ -17,6 +17,9 @@ export const getWhaleAddressForToken = (symbol: string): string => {
     case "DAI":
       address = process.env.DAI_WHALE_ADDRESS || "";
       break;
+    case "LINK":
+      address = process.env.LINK_WHALE_ADDRESS || "";
+      break;
     default:
       throw `Could not find whale address for token ${symbol}`;
   }
@@ -32,20 +35,7 @@ export const convertToCurrencyDecimals = (
   currencySymbol: string,
   amount: string,
 ) => {
-  let decimals;
-  switch (currencySymbol) {
-    case "ETH":
-      decimals = TOKEN_DECIMALS.get("ETH");
-      break;
-    case "USDC":
-      decimals = TOKEN_DECIMALS.get("USDC");
-      break;
-    case "DAI":
-      decimals = TOKEN_DECIMALS.get("DAI");
-      break;
-    default:
-      throw `Could not find decimals for currency ${currencySymbol}`;
-  }
+  const decimals = TOKEN_DECIMALS.get(currencySymbol);
 
   if (!decimals) {
     throw `Could not find decimals for currency ${currencySymbol}`;
@@ -82,7 +72,7 @@ export const getReserveData = async (
     availableLiquidity: data.availableLiquidity,
     totalBorrowsVariable: data.totalBorrowsVariable,
     liquidityRate: new BigNumberZD(data.liquidityRate.toString()),
-    variableBorrowRate: new BigNumber(data.variableBorrowRate.toString()),
+    variableBorrowRate: new BigNumberZD(data.variableBorrowRate.toString()),
     utilizationRate: new BigNumber(data.utilizationRate.toString()),
     liquidityIndex: new BigNumber(data.liquidityIndex.toString()),
     variableBorrowIndex: new BigNumber(data.variableBorrowIndex.toString()),
@@ -143,7 +133,7 @@ export const getUserData = async (
       userData.variableBorrowIndex.toString(),
     ),
     lastUpdateTimestamp: userData.lastUpdateTimestamp,
-    // usageAsCollateralEnabled: userData.usageAsCollateralEnabled,
+    usageAsCollateralEnabled: userData.usageAsCollateralEnabled,
     walletBalance,
   };
 };

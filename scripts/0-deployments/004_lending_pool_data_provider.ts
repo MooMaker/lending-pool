@@ -8,9 +8,9 @@ const deployFunction: DeployFunction = async function (
   const { deployer } = await hre.getNamedAccounts();
   const { deploy } = hre.deployments;
 
-  const name = "LendingPool";
+  const name = "LendingPoolDataProvider";
   const deployment = await deploy(name, {
-    contract: "contracts/LendingPool.sol:LendingPool",
+    contract: "contracts/LendingPoolDataProvider.sol:LendingPoolDataProvider",
     from: deployer,
     log: true,
     args: [],
@@ -21,6 +21,6 @@ const deployFunction: DeployFunction = async function (
   });
 };
 
-deployFunction.tags = ["lending-pool", "client-contracts"];
+deployFunction.tags = [];
 
 export default deployFunction;

@@ -9,10 +9,13 @@ import "../configuration/AddressesProvider.sol";
 import "../LendingPool.sol";
 import "../LendingPoolCore.sol";
 import "../libraries/WadRayMath.sol";
+import {LendingPoolDataProvider} from "../LendingPoolDataProvider.sol";
 
 contract AToken is ERC20Wrapper {
     using SafeMath for uint256;
     using WadRayMath for uint256;
+
+    uint256 public constant UINT_MAX_VALUE = type(uint256).max;
 
     AddressesProvider public addressesProvider;
 
@@ -24,6 +27,7 @@ contract AToken is ERC20Wrapper {
 
     LendingPoolCore private core;
     LendingPool private pool;
+    LendingPoolDataProvider private dataProvider;
 
     /**
      * @dev emitted after the mint action
@@ -33,6 +37,20 @@ contract AToken is ERC20Wrapper {
      * @param _fromIndex the last index of the user
      **/
     event MintOnDeposit(
+        address indexed _from,
+        uint256 _value,
+        uint256 _fromBalanceIncrease,
+        uint256 _fromIndex
+    );
+
+    /**
+     * @dev emitted after the redeem action
+     * @param _from the address performing the redeem
+     * @param _value the amount to be redeemed
+     * @param _fromBalanceIncrease the cumulated balance since the last update of the user
+     * @param _fromIndex the last index of the user
+     **/
+    event Redeem(
         address indexed _from,
         uint256 _value,
         uint256 _fromBalanceIncrease,
@@ -59,6 +77,9 @@ contract AToken is ERC20Wrapper {
         _decimals = _underlyingAssetDecimals;
         core = LendingPoolCore(addressesProvider.getLendingPoolCore());
         pool = LendingPool(addressesProvider.getLendingPool());
+        dataProvider = LendingPoolDataProvider(
+            addressesProvider.getLendingPoolDataProvider()
+        );
     }
 
     function decimals() public view override returns (uint8) {
@@ -143,6 +164,92 @@ contract AToken is ERC20Wrapper {
     }
 
     /**
+     * @dev redeems aToken for the underlying asset
+     * @param _amount the amount being redeemed
+     **/
+    function redeem(uint256 _amount) external {
+        require(_amount > 0, "Amount to redeem needs to be > 0");
+
+        //cumulates the balance of the user
+        (
+            ,
+            uint256 currentBalance,
+            uint256 balanceIncrease,
+            uint256 index
+        ) = cumulateBalanceInternal(msg.sender);
+
+        uint256 amountToRedeem = _amount;
+
+        //if amount is equal to uint(-1), the user wants to redeem everything
+        if (_amount == UINT_MAX_VALUE) {
+            amountToRedeem = currentBalance;
+        }
+
+        require(
+            amountToRedeem <= currentBalance,
+            "User cannot redeem more than the available balance"
+        );
+
+        //check that the user is allowed to redeem the amount
+        require(
+            isTransferAllowed(msg.sender, amountToRedeem),
+            "Transfer cannot be allowed."
+        );
+
+        // TODO(redirects): implement?
+        //if the user is redirecting his interest towards someone else,
+        //we update the redirected balance of the redirection address by adding the accrued interest,
+        //and removing the amount to redeem
+        //        updateRedirectedBalanceOfRedirectionAddressInternal(
+        //            msg.sender,
+        //            balanceIncrease,
+        //            amountToRedeem
+        //        );
+
+        // burns tokens equivalent to the amount requested
+        _burn(msg.sender, amountToRedeem);
+
+        bool userIndexReset = false;
+        //reset the user data if the remaining balance is 0
+        if (currentBalance.sub(amountToRedeem) == 0) {
+            userIndexReset = resetDataOnZeroBalanceInternal(msg.sender);
+        }
+
+        // executes redeem of the underlying asset
+        pool.redeemUnderlying(
+            underlyingAssetAddress,
+            payable(msg.sender),
+            amountToRedeem,
+            currentBalance.sub(amountToRedeem)
+        );
+
+        emit Redeem(
+            msg.sender,
+            amountToRedeem,
+            balanceIncrease,
+            userIndexReset ? 0 : index
+        );
+    }
+
+    /**
+     * @dev Used to validate transfers before actually executing them.
+     * @param _user address of the user to check
+     * @param _amount the amount to check
+     * @return true if the _user can transfer _amount, false otherwise
+     **/
+    function isTransferAllowed(
+        address _user,
+        uint256 _amount
+    ) public view returns (bool) {
+        return
+            dataProvider.balanceDecreaseAllowed(
+                underlyingAssetAddress,
+                _user,
+                _amount
+            );
+    }
+
+    /**
      * @dev calculate the interest accrued by _user on a specific balance
      * @param _user the address of the user for which the interest is being accumulated
      * @param _balance the balance on which the interest is calculated
@@ -209,5 +316,30 @@ contract AToken is ERC20Wrapper {
      **/
     function principalBalanceOf(address _user) external view returns (uint256) {
         return super.balanceOf(_user);
+    }
+
+    /**
+     * @dev function to reset the interest stream redirection and the user index, if the
+     * user has no balance left.
+     * @param _user the address of the user
+     * @return true if the user index has also been reset, false otherwise. useful to emit the proper user index value
+     **/
+    function resetDataOnZeroBalanceInternal(
+        address _user
+    ) internal returns (bool) {
+        // TODO(redirects): implement?
+        //if the user has 0 principal balance, the interest stream redirection gets reset
+        //        interestRedirectionAddresses[_user] = address(0);
+
+        //emits a InterestStreamRedirected event to notify that the redirection has been reset
+        //        emit InterestStreamRedirected(_user, address(0), 0, 0, 0);
+
+        //if the redirected balance is also 0, we clear up the user index
+        //        if (redirectedBalances[_user] == 0) {
+        userIndexes[_user] = 0;
+        return true;
+        //        } else {
+        //            return false;
+        //        }
     }
 }
