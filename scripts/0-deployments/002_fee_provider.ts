@@ -1,6 +1,5 @@
 import { DeployFunction } from "hardhat-deploy/types";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { writeToJSON } from "../../lib/test/utils";
 
 const deployFunction: DeployFunction = async function (
   hre: HardhatRuntimeEnvironment,
@@ -9,15 +8,11 @@ const deployFunction: DeployFunction = async function (
   const { deploy } = hre.deployments;
 
   const name = "FeeProvider";
-  const deployment = await deploy(name, {
+  await deploy(name, {
     contract: "contracts/fees/FeeProvider.sol:FeeProvider",
     from: deployer,
     log: true,
     args: [],
-  });
-
-  await writeToJSON("./deploy.config.json", {
-    [name]: deployment.address,
   });
 };
 

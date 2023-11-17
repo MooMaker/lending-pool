@@ -10,8 +10,8 @@ export const getChainlinkDataFeedsForNetwork = (network: Network) => {
     return CHAINLINK_ETH_PRICE_DATA_FEEDS.MAINNET;
   }
 
-  switch (network.config.chainId) {
-    case 1:
+  switch (network.name) {
+    case "mainnet":
       return CHAINLINK_ETH_PRICE_DATA_FEEDS.MAINNET;
     default:
       throw new Error(`Unsupported network: ${network.config.chainId}`);
