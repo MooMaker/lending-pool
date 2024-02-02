@@ -4,9 +4,19 @@ import {
   DepositActionArgs,
   RedeemActionArgs,
   RepayActionArgs,
+  SetUseAsCollateralActionArgs,
   Story,
+  TransferActionArgs,
 } from "../../../test/scenario/types";
-import { approve, borrow, deposit, redeem, repay, transfer } from "./actions";
+import {
+  approve,
+  borrow,
+  deposit,
+  redeem,
+  repay,
+  setUseAsCollateral,
+  transfer,
+} from "./actions";
 
 export const executeStory = async (story: Story, users: string[]) => {
   for (const action of story.actions) {
@@ -37,7 +47,7 @@ const executeAction = async (action: Action, users: string[]) => {
 
   switch (name) {
     case "transfer": {
-      const { amount } = action.args;
+      const { amount } = action.args as TransferActionArgs;
 
       if (!amount || amount === "") {
         throw `Invalid amount of ${reserve} to transfer`;
@@ -134,6 +144,25 @@ const executeAction = async (action: Action, users: string[]) => {
           userIndex,
           onBehalfOf,
           sendValue,
+          expected,
+          revertMessage,
+        );
+      }
+      break;
+
+    case "setUseAsCollateral":
+      {
+        const { useAsCollateral } = action.args as SetUseAsCollateralActionArgs;
+
+        if (!useAsCollateral || useAsCollateral === "") {
+          throw `A valid value for useAsCollateral needs to be set when calling setUseReserveAsCollateral on reserve ${reserve}`;
+        }
+
+        await setUseAsCollateral(
+          reserve,
+          userAddress,
+          userIndex,
+          useAsCollateral,
           expected,
           revertMessage,
         );

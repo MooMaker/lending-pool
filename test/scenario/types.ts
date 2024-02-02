@@ -26,11 +26,25 @@ export type RedeemActionArgs = {
   user: string;
 };
 
+export type TransferActionArgs = {
+  reserve: string;
+  amount: string;
+  user: string;
+};
+
+export type SetUseAsCollateralActionArgs = {
+  reserve: string;
+  useAsCollateral: string;
+  user: string;
+};
+
 type ActionArgs =
   | DepositActionArgs
   | BorrowActionArgs
   | RepayActionArgs
-  | RedeemActionArgs;
+  | RedeemActionArgs
+  | SetUseAsCollateralActionArgs
+  | TransferActionArgs;
 
 export type Action = {
   name: string;

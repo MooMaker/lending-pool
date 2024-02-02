@@ -5,6 +5,7 @@ import DEPOSIT_SCENARIOS from "./scenarios/deposit.json";
 import BORROW_REPAY_SCENARIOS from "./scenarios/borrow-repay.json";
 import REDEEM_SCENARIOS from "./scenarios/redeem.json";
 import REDEEM_NEGATIVE_SCENARIOS from "./scenarios/redeem-negatives.json";
+import SET_USE_AS_COLLATERAL_SCENARIOS from "./scenarios/set-use-as-collateral.json";
 import { executeStory } from "../../lib/test/scenarios/scenario-engine";
 import { setConfig as setActionsConfig } from "../../lib/test/scenarios/actions";
 import { setConfig as setCalcConfig } from "../../lib/test/calculations";
@@ -18,6 +19,7 @@ const scenarioSpec = [
   BORROW_REPAY_SCENARIOS as Scenario,
   REDEEM_SCENARIOS as Scenario,
   REDEEM_NEGATIVE_SCENARIOS as Scenario,
+  SET_USE_AS_COLLATERAL_SCENARIOS as Scenario,
 ];
 
 describe("Scenario tests", () => {
