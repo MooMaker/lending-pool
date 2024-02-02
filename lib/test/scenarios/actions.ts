@@ -20,6 +20,7 @@ import {
   calcExpectedUserDataAfterRepay,
   calcExpectedReserveDataAfterRedeem,
   calcExpectedUserDataAfterRedeem,
+  calcExpectedUserDataAfterSetUseAsCollateral,
 } from "../calculations";
 import { ReserveData, UserReserveData } from "../../types";
 import { expect } from "chai";
@@ -562,6 +563,84 @@ export const redeem = async (
     }
 
     const txResult = aTokenInstance.connect(user).redeem(amountToRedeem);
+
+    await expect(txResult).to.be.revertedWith(revertMessage);
+  }
+};
+
+export const setUseAsCollateral = async (
+  reserveSymbol: string,
+  userAddress: string,
+  userIndex: number,
+  useAsCollateral: string,
+  expectedResult: string,
+  revertMessage?: string,
+) => {
+  const { lendingPool } = _config.contracts;
+  if (!lendingPool) {
+    throw new Error("Lending pool is not set in configuration");
+  }
+
+  const { tokens } = await getEnvironment();
+
+  let reserve = ETH_ADDRESS;
+
+  if (reserveSymbol !== SYMBOLS.ETH) {
+    const tokenContract = tokens.get(reserveSymbol);
+    if (!tokenContract) {
+      throw new Error(`Token contract not found for ${reserveSymbol}`);
+    }
+
+    reserve = await tokenContract.getAddress();
+  }
+
+  const { reserveData: reserveDataBefore, userData: userDataBefore } =
+    await getContractsData(reserve, userAddress);
+
+  const useAsCollateralBool = useAsCollateral.toLowerCase() === "true";
+
+  const user = await hre.ethers.getSigner(userAddress);
+  console.log(
+    `[Action: SetUseAsCollateral] User ${userIndex} sets use as collateral for ${reserveSymbol} to ${useAsCollateral}`,
+  );
+
+  if (expectedResult === "success") {
+    const txResult = await lendingPool
+      .connect(user)
+      .setUserUseReserveAsCollateral(reserve, useAsCollateralBool);
+
+    const { txCost } = await getTxCostAndTimestamp(txResult);
+
+    const { userData: userDataAfter } = await getContractsData(
+      reserve,
+      userAddress,
+    );
+
+    const expectedUserData = calcExpectedUserDataAfterSetUseAsCollateral(
+      useAsCollateralBool,
+      reserveDataBefore,
+      userDataBefore,
+      txCost,
+    );
+
+    expectEqual(userDataAfter, expectedUserData);
+    if (useAsCollateralBool) {
+      await expect(txResult)
+        .to.emit(lendingPool, "ReserveUsedAsCollateralEnabled")
+        .withArgs(reserve, userAddress);
+    } else {
+      await expect(txResult)
+        .to.emit(lendingPool, "ReserveUsedAsCollateralDisabled")
+        .withArgs(reserve, userAddress);
+    }
+  } else if (expectedResult === "revert") {
+    if (!revertMessage) {
+      throw new Error("Revert message is missing in scenario");
+    }
+
+    const txResult = lendingPool
+      .connect(user)
+      .setUserUseReserveAsCollateral(reserve, useAsCollateralBool);
 
     await expect(txResult).to.be.revertedWith(revertMessage);
   }

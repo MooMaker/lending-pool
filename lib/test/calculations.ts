@@ -772,6 +772,23 @@ export const calcExpectedUserDataAfterRepay = (
   return expectedUserData;
 };
 
+export const calcExpectedUserDataAfterSetUseAsCollateral = (
+  useAsCollateral: boolean,
+  reserveDataBeforeAction: ReserveData,
+  userDataBeforeAction: UserReserveData,
+  txCost: bigint,
+): UserReserveData => {
+  const expectedUserData = { ...userDataBeforeAction };
+
+  expectedUserData.usageAsCollateralEnabled = useAsCollateral;
+
+  if (reserveDataBeforeAction.address === _config.ethereumAddress) {
+    expectedUserData.walletBalance -= txCost;
+  }
+
+  return expectedUserData;
+};
+
 const calcExpectedVariableBorrowIndex = (
   reserveData: ReserveData,
   timestamp: bigint,
