@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "compile": "hardhat compile",
-    "test": "hardhat test",
+    "test": "echo \"Error: no test specified\" && exit 1",
     "deploy": "hardhat deploy",
     "code-quality:check": "npm run eslint:check && npm run solhint:check && npm run prettier:check && npm run types:check",
     "eslint:check": "eslint .",
