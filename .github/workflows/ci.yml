@@ -34,9 +34,12 @@ jobs:
         run: npm run types:check
   tests:
     name: Tests
+
     env:
       INFURA_API_KEY: ${{ secrets.INFURA_API_KEY }}
-      DAI_WHALE_ADDRESS: ${{ env.DAI_WHALE_ADDRESS }}
+      DAI_WHALE_ADDRESS: ${{ vars.DAI_WHALE_ADDRESS }}
+      USDC_WHALE_ADDRESS: ${{ vars.USDC_WHALE_ADDRESS }}
+      LINK_WHALE_ADDRESS: ${{ vars.LINK_WHALE_ADDRESS }}
 
     runs-on: ubuntu-latest
 
