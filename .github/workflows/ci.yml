@@ -37,6 +37,8 @@ jobs:
     env:
       INFURA_API_KEY: ${{ secrets.INFURA_API_KEY }}
       DAI_WHALE_ADDRESS: ${{ secrets.DAI_WHALE_ADDRESS }}
+      USDC_WHALE_ADDRESS: ${{ secrets.USDC_WHALE_ADDRESS }}
+      LINK_WHALE_ADDRESS: ${{ secrets.LINK_WHALE_ADDRESS }}
 
     runs-on: ubuntu-latest
 
