@@ -13,6 +13,15 @@ const deployFunction: DeployFunction = async function (
   const { deployer } = await hre.getNamedAccounts();
   const { deploy } = hre.deployments;
 
+  // Deploy fallback oracle
+  let name = "PriceOracle";
+  const oracleDeployment = await deploy(name, {
+    contract: "contracts/misc/PriceOracle.sol:PriceOracle",
+    from: deployer,
+    log: true,
+    args: [],
+  });
+
   const tokenList = getTokenListForNetwork(hre.network);
   const dataFeeds = getChainlinkDataFeedsForNetwork(hre.network);
 
@@ -34,13 +43,13 @@ const deployFunction: DeployFunction = async function (
     dataFeedAddresses.push(dataFeedAddress);
   }
 
-  const name = "ChainLinkProxyPriceProvider";
+  name = "ChainLinkProxyPriceProvider";
   await deploy(name, {
     contract:
       "contracts/misc/ChainlinkProxyPriceProvider.sol:ChainLinkProxyPriceProvider",
     from: deployer,
     log: true,
-    args: [reserveAddresses, dataFeedAddresses],
+    args: [reserveAddresses, dataFeedAddresses, oracleDeployment.address],
   });
 };
 

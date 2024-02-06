@@ -93,6 +93,26 @@ contract LendingPool is ReentrancyGuard, Initializable {
     );
 
     /**
+     * @dev emitted when a user enables a reserve as collateral
+     * @param _reserve the address of the reserve
+     * @param _user the address of the user
+     **/
+    event ReserveUsedAsCollateralEnabled(
+        address indexed _reserve,
+        address indexed _user
+    );
+
+    /**
+     * @dev emitted when a user disables a reserve as collateral
+     * @param _reserve the address of the reserve
+     * @param _user the address of the user
+     **/
+    event ReserveUsedAsCollateralDisabled(
+        address indexed _reserve,
+        address indexed _user
+    );
+
+    /**
      * @dev functions affected by this modifier can only be invoked if the reserve is active
      * @param _reserve the address of the reserve
      **/
@@ -507,6 +527,52 @@ contract LendingPool is ReentrancyGuard, Initializable {
 
         //solium-disable-next-line
         emit RedeemUnderlying(_reserve, _user, _amount, block.timestamp);
+    }
+
+    /**
+     * @dev allows depositors to enable or disable a specific deposit as collateral.
+     * @param _reserve the address of the reserve
+     * @param _useAsCollateral true if the user wants to user the deposit as collateral, false otherwise.
+     **/
+    function setUserUseReserveAsCollateral(
+        address _reserve,
+        bool _useAsCollateral
+    )
+        external
+        nonReentrant
+        onlyActiveReserve(_reserve) // TODO: add
+    //        onlyUnfreezedReserve(_reserve)
+    {
+        uint256 underlyingBalance = core.getUserUnderlyingAssetBalance(
+            _reserve,
+            msg.sender
+        );
+
+        require(
+            underlyingBalance > 0,
+            "User does not have any liquidity deposited"
+        );
+
+        require(
+            dataProvider.balanceDecreaseAllowed(
+                _reserve,
+                msg.sender,
+                underlyingBalance
+            ),
+            "User deposit is already being used as collateral"
+        );
+
+        core.setUserUseReserveAsCollateral(
+            _reserve,
+            msg.sender,
+            _useAsCollateral
+        );
+
+        if (_useAsCollateral) {
+            emit ReserveUsedAsCollateralEnabled(_reserve, msg.sender);
+        } else {
+            emit ReserveUsedAsCollateralDisabled(_reserve, msg.sender);
+        }
     }
 
     function getReserveData(
