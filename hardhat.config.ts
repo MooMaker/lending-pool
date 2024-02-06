@@ -27,11 +27,16 @@ const config: HardhatUserConfig = {
         blockNumber: 18192031,
       },
     },
-    goerli: {
-      url: `https://goerli.infura.io/v3/${INFURA_API_KEY}`,
-      accounts: [GOERLI_PRIVATE_KEY],
-    },
   },
 };
+
+if (config.networks) {
+  if (GOERLI_PRIVATE_KEY) {
+    config.networks.goerli = {
+      url: `https://goerli.infura.io/v3/${INFURA_API_KEY}`,
+      accounts: [GOERLI_PRIVATE_KEY],
+    };
+  }
+}
 
 export default config;
