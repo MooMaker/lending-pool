@@ -1,7 +1,6 @@
 import { DeployFunction } from "hardhat-deploy/types";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { getTokenListForNetwork } from "../../lib/utils/token";
-import { writeToJSON } from "../../lib/test/utils";
 import { SYMBOLS, TOKEN_DECIMALS } from "../../lib/constants/tokens";
 
 export type ATokenInfo = {
@@ -38,7 +37,7 @@ const setupFunction: DeployFunction = async function (
     const tokenName = `Liquorice interest bearing ${symbol}`;
     const aTokenSymbol = `${tokenPrefix}${symbol}`;
 
-    const deployment = await deployments.deploy(aTokenSymbol, {
+    await deployments.deploy(aTokenSymbol, {
       contract: "contracts/token/AToken.sol:AToken",
       from: deployer,
       log: true,
@@ -49,11 +48,6 @@ const setupFunction: DeployFunction = async function (
         tokenName,
         aTokenSymbol,
       ],
-    });
-
-    await writeToJSON("./deploy.config.json", {
-      [aTokenSymbol]: deployment.address,
-      [symbol]: reserveAddress,
     });
   }
 };

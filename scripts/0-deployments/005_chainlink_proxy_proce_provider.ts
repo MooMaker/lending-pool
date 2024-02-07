@@ -1,6 +1,5 @@
 import { DeployFunction } from "hardhat-deploy/types";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { writeToJSON } from "../../lib/test/utils";
 import { getTokenListForNetwork } from "../../lib/utils/token";
 import { SYMBOLS } from "../../lib/constants/tokens";
 import { getChainlinkDataFeedsForNetwork } from "../../lib/utils/oracle";
@@ -45,16 +44,12 @@ const deployFunction: DeployFunction = async function (
   }
 
   name = "ChainLinkProxyPriceProvider";
-  const deployment = await deploy(name, {
+  await deploy(name, {
     contract:
       "contracts/misc/ChainlinkProxyPriceProvider.sol:ChainLinkProxyPriceProvider",
     from: deployer,
     log: true,
     args: [reserveAddresses, dataFeedAddresses, oracleDeployment.address],
-  });
-
-  await writeToJSON("./deploy.config.json", {
-    [name]: deployment.address,
   });
 };
 
