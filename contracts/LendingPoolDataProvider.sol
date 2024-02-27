@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import {AddressesProvider} from "./configuration/AddressesProvider.sol";
 import {LendingPoolCore} from "./LendingPoolCore.sol";
 import {IPriceOracleGetter} from "./interfaces/IPriceOracleGetter.sol";
+import {IFeeProvider} from "./interfaces/IFeeProvider.sol";
 import {WadRayMath} from "./libraries/WadRayMath.sol";
 
 contract LendingPoolDataProvider is Initializable {
@@ -28,6 +29,41 @@ contract LendingPoolDataProvider is Initializable {
     ) public initializer {
         addressesProvider = _addressesProvider;
         core = LendingPoolCore(_addressesProvider.getLendingPoolCore());
+    }
+
+    function getUserAccountData(
+        address _user
+    )
+        external
+        view
+        returns (
+            uint256 totalLiquidityETH,
+            uint256 totalCollateralETH,
+            uint256 totalBorrowsETH,
+            uint256 totalFeesETH,
+            uint256 availableBorrowsETH,
+            uint256 currentLiquidationThreshold,
+            uint256 ltv,
+            uint256 healthFactor
+        )
+    {
+        (
+            totalLiquidityETH,
+            totalCollateralETH,
+            totalBorrowsETH,
+            totalFeesETH,
+            ltv,
+            currentLiquidationThreshold,
+            healthFactor,
+
+        ) = calculateUserGlobalData(_user);
+
+        availableBorrowsETH = calculateAvailableBorrowsETHInternal(
+            totalCollateralETH,
+            totalBorrowsETH,
+            totalFeesETH,
+            ltv
+        );
     }
 
     /**
@@ -229,6 +265,27 @@ contract LendingPoolDataProvider is Initializable {
             .div(_userCurrentLtv); //LTV is calculated in percentage
 
         return collateralNeededInETH;
+    }
+
+    function calculateAvailableBorrowsETHInternal(
+        uint256 collateralBalanceETH,
+        uint256 borrowBalanceETH,
+        uint256 totalFeesETH,
+        uint256 ltv
+    ) internal view returns (uint256) {
+        uint256 availableBorrowsETH = collateralBalanceETH.mul(ltv).div(100); //ltv is in percentage
+
+        if (availableBorrowsETH < borrowBalanceETH) {
+            return 0;
+        }
+
+        availableBorrowsETH = availableBorrowsETH.sub(
+            borrowBalanceETH.add(totalFeesETH)
+        );
+        //calculate fee
+        uint256 borrowFee = IFeeProvider(addressesProvider.getFeeProvider())
+            .calculateLoanOriginationFee(msg.sender, availableBorrowsETH);
+        return availableBorrowsETH.sub(borrowFee);
     }
 
     struct balanceDecreaseAllowedLocalVars {

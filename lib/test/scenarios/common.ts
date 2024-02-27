@@ -2,8 +2,10 @@ import hre from "hardhat";
 import {
   AddressesProvider,
   AToken,
+  ChainLinkProxyPriceProvider,
   DefaultReserveInterestRateStrategy,
   ERC20,
+  IPriceOracle,
   LendingPool,
   LendingPoolCore,
 } from "../../../typechain-types";
@@ -37,10 +39,10 @@ export async function getEnvironment(): Promise<{
 }
 
 const RESERVE_LTV = 80n;
-const LIQUIDATION_THRESHOLD = 90n;
+const LIQUIDATION_THRESHOLD = 80n;
 const LIQUIDATION_BONUS = 1n;
 
-const MOCK_ETHER_PRICES = {
+export const MOCK_ETHER_PRICES = {
   [SYMBOLS.DAI]: hre.ethers.parseEther("0.001"),
   [SYMBOLS.USDC]: hre.ethers.parseEther("0.001"),
   [SYMBOLS.LINK]: hre.ethers.parseEther("0.01"),
@@ -50,6 +52,8 @@ export async function setupContracts(): Promise<{
   addressesProvider: AddressesProvider;
   lendingPool: LendingPool;
   lendingPoolCore: LendingPoolCore;
+  chainLinkPriceOracle: ChainLinkProxyPriceProvider;
+  fallbackOracle: IPriceOracle;
   aTokensPerSymbol: Map<string, AToken>;
   aTokensPerAddress: Map<string, AToken>;
   interestRateStrategies: Map<string, DefaultReserveInterestRateStrategy>;
@@ -106,7 +110,7 @@ export async function setupContracts(): Promise<{
     tokenDistributor,
   } = await deployContracts();
 
-  const deployChainlinkPriceOracle = async () => {
+  const deployPriceOracle = async () => {
     const reserveAddresses: string[] = [];
     const dataFeedAddresses: string[] = [];
 
@@ -146,14 +150,22 @@ export async function setupContracts(): Promise<{
 
     const chainLinkProxyPriceProviderFactory =
       await hre.ethers.getContractFactory("ChainLinkProxyPriceProvider");
-    return chainLinkProxyPriceProviderFactory.deploy(
-      reserveAddresses,
-      dataFeedAddresses,
-      await fallbackOracle.getAddress(),
-    );
+
+    const chainLinkProxyPriceProvider =
+      await chainLinkProxyPriceProviderFactory.deploy(
+        reserveAddresses,
+        dataFeedAddresses,
+        await fallbackOracle.getAddress(),
+      );
+
+    return {
+      chainLinkProxyPriceProvider,
+      fallbackOracle,
+    };
   };
 
-  const chainLinkProxyPriceProvider = await deployChainlinkPriceOracle();
+  const { chainLinkProxyPriceProvider, fallbackOracle } =
+    await deployPriceOracle();
 
   const setup = async () => {
     // Setup addresses provider
@@ -300,6 +312,8 @@ export async function setupContracts(): Promise<{
     addressesProvider,
     lendingPool,
     lendingPoolCore,
+    chainLinkPriceOracle: chainLinkProxyPriceProvider,
+    fallbackOracle,
     aTokensPerSymbol,
     aTokensPerAddress,
     interestRateStrategies,

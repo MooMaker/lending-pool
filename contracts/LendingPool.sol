@@ -113,6 +113,30 @@ contract LendingPool is ReentrancyGuard, Initializable {
     );
 
     /**
+     * @dev emitted when a borrower is liquidated
+     * @param _collateral the address of the collateral being liquidated
+     * @param _reserve the address of the reserve
+     * @param _user the address of the user being liquidated
+     * @param _purchaseAmount the total amount liquidated
+     * @param _liquidatedCollateralAmount the amount of collateral being liquidated
+     * @param _accruedBorrowInterest the amount of interest accrued by the borrower since the last action
+     * @param _liquidator the address of the liquidator
+     * @param _receiveAToken true if the liquidator wants to receive aTokens, false otherwise
+     * @param _timestamp the timestamp of the action
+     **/
+    event LiquidationCall(
+        address indexed _collateral,
+        address indexed _reserve,
+        address indexed _user,
+        uint256 _purchaseAmount,
+        uint256 _liquidatedCollateralAmount,
+        uint256 _accruedBorrowInterest,
+        address _liquidator,
+        bool _receiveAToken,
+        uint256 _timestamp
+    );
+
+    /**
      * @dev functions affected by this modifier can only be invoked if the reserve is active
      * @param _reserve the address of the reserve
      **/
@@ -615,6 +639,25 @@ contract LendingPool is ReentrancyGuard, Initializable {
         );
         aTokenAddress = core.getReserveATokenAddress(_reserve);
         lastUpdateTimestamp = core.getReserveLastUpdate(_reserve);
+    }
+
+    function getUserAccountData(
+        address _user
+    )
+        external
+        view
+        returns (
+            uint256 totalLiquidityETH,
+            uint256 totalCollateralETH,
+            uint256 totalBorrowsETH,
+            uint256 totalFeesETH,
+            uint256 availableBorrowsETH,
+            uint256 currentLiquidationThreshold,
+            uint256 ltv,
+            uint256 healthFactor
+        )
+    {
+        return dataProvider.getUserAccountData(_user);
     }
 
     function getUserReserveData(
