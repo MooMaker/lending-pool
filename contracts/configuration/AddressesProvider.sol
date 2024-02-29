@@ -13,6 +13,7 @@ contract AddressesProvider is Ownable, IAddressesProvider, AddressStorage {
     event LendingPoolDataProviderUpdated(address indexed newAddress);
     event FeeProviderUpdated(address indexed newAddress);
     event TokenDistributorUpdated(address indexed newAddress);
+    event LiquidationManagerUpdated(address indexed newAddress);
 
     bytes32 private constant LENDING_POOL = "LENDING_POOL";
     bytes32 private constant LENDING_POOL_CORE = "LENDING_POOL_CORE";
@@ -20,6 +21,7 @@ contract AddressesProvider is Ownable, IAddressesProvider, AddressStorage {
     bytes32 private constant DATA_PROVIDER = "DATA_PROVIDER";
     bytes32 private constant FEE_PROVIDER = "FEE_PROVIDER";
     bytes32 private constant TOKEN_DISTRIBUTOR = "TOKEN_DISTRIBUTOR";
+    bytes32 private constant LIQUIDATION_MANAGER = "LIQUIDATION_MANAGER";
 
     /**
      * @dev returns the address of the LendingPool proxy
@@ -108,5 +110,24 @@ contract AddressesProvider is Ownable, IAddressesProvider, AddressStorage {
     function setTokenDistributor(address _tokenDistributor) public onlyOwner {
         _setAddress(TOKEN_DISTRIBUTOR, _tokenDistributor);
         emit TokenDistributorUpdated(_tokenDistributor);
+    }
+
+    /**
+     * @dev returns the address of the LendingPoolLiquidationManager
+     * @return the address of the LendingPoolLiquidationManager
+     */
+    function getLendingPoolLiquidationManager() public view returns (address) {
+        return getAddress(LIQUIDATION_MANAGER);
+    }
+
+    /**
+     * @dev updates the implementation of the LendingPoolLiquidationManager
+     * @param _manager the new lending pool liquidation manager implementation
+     **/
+    function setLendingPoolLiquidationManager(
+        address _manager
+    ) public onlyOwner {
+        _setAddress(LIQUIDATION_MANAGER, _manager);
+        emit LiquidationManagerUpdated(_manager);
     }
 }

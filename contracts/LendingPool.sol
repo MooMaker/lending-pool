@@ -554,6 +554,57 @@ contract LendingPool is ReentrancyGuard, Initializable {
     }
 
     /**
+     * @dev users can invoke this function to liquidate an undercollateralized position.
+     * @param _reserve the address of the collateral to liquidated
+     * @param _reserve the address of the principal reserve
+     * @param _user the address of the borrower
+     * @param _purchaseAmount the amount of principal that the liquidator wants to repay
+     * @param _receiveAToken true if the liquidators wants to receive the aTokens, false if
+     * he wants to receive the underlying asset directly
+     **/
+    function liquidationCall(
+        address _collateral,
+        address _reserve,
+        address _user,
+        uint256 _purchaseAmount,
+        bool _receiveAToken
+    )
+        external
+        payable
+        nonReentrant
+        onlyActiveReserve(_reserve)
+        onlyActiveReserve(_collateral)
+    {
+        address liquidationManager = addressesProvider
+            .getLendingPoolLiquidationManager();
+
+        (bool success, bytes memory result) = liquidationManager.delegatecall(
+            abi.encodeWithSignature(
+                "liquidationCall(address,address,address,uint256,bool)",
+                _collateral,
+                _reserve,
+                _user,
+                _purchaseAmount,
+                _receiveAToken
+            )
+        );
+
+        require(success, "Liquidation call failed");
+
+        (uint256 returnCode, string memory returnMessage) = abi.decode(
+            result,
+            (uint256, string)
+        );
+
+        if (returnCode != 0) {
+            //error found
+            revert(
+                string(abi.encodePacked("Liquidation failed: ", returnMessage))
+            );
+        }
+    }
+
+    /**
      * @dev allows depositors to enable or disable a specific deposit as collateral.
      * @param _reserve the address of the reserve
      * @param _useAsCollateral true if the user wants to user the deposit as collateral, false otherwise.
