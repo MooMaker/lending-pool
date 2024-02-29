@@ -20,6 +20,9 @@ const config: HardhatUserConfig = {
     firstBorrower: {
       default: 2,
     },
+    liquidator: {
+      default: 3,
+    },
   },
   solidity: "0.8.19",
   paths: {

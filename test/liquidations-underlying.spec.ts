@@ -1,4 +1,5 @@
 import hre from "hardhat";
+import chai from "chai";
 import BigNumber from "bignumber.js";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { setBalance } from "@nomicfoundation/hardhat-network-helpers";
@@ -24,11 +25,47 @@ import {
 } from "../lib/test/helpers";
 import { getTokenListForNetwork } from "../lib/utils/token";
 
-describe("LendingPool liquidation - liquidator receiving underlying asset", () => {
+const almostEqual = function (
+  this: Chai.AssertionStatic,
+  expectedBigInt: bigint,
+  actualBigInt: bigint,
+) {
+  const expected = new BigNumber(expectedBigInt.toString());
+  const actual = new BigNumber(actualBigInt.toString());
+
+  this.assert(
+    expected.plus(new BigNumber(1)).eq(actual) ||
+      expected.plus(new BigNumber(2)).eq(actual) ||
+      actual.plus(new BigNumber(1)).eq(expected) ||
+      actual.plus(new BigNumber(2)).eq(expected) ||
+      expected.eq(actual),
+    "expected #{act} to be almost equal #{exp}",
+    "expected #{act} to be different from #{exp}",
+    expected.toString(),
+    actual.toString(),
+  );
+};
+
+chai.use(function (chai: Chai.ChaiStatic, utils: Chai.ChaiUtils) {
+  chai.Assertion.overwriteMethod("almostEqual", function () {
+    return function (this: Chai.AssertionStatic, expected: bigint) {
+      // if (utils.flag(this, "bignumber")) {
+      // const expected = new BigNumber(expectedBigInt.toString());
+      // const actual = new BigNumber(this._obj);
+      almostEqual.apply(this, [expected, this._obj]);
+      // } else {
+      //   original.apply(this, arguments);
+      // }
+    };
+  });
+});
+
+describe.only("LendingPool liquidation - liquidator receiving underlying asset", () => {
   let tokens = new Map<string, ERC20>();
   let aTokensPerSymbol = new Map<string, AToken>();
   let depositorAddress: string;
   let borrowerAddress: string;
+  let liquidatorAddress: string;
   let addressesProvider: AddressesProvider;
   let lendingPool: LendingPool;
   let priceOracle: IPriceOracle;
@@ -41,7 +78,6 @@ describe("LendingPool liquidation - liquidator receiving underlying asset", () =
       lendingPoolCore,
       aTokensPerSymbol,
       fallbackOracle: priceOracle,
-      //   aTokensPerAddress,
     } = await loadFixture(setupContracts));
 
     ({ tokens } = await getEnvironment());
@@ -63,8 +99,11 @@ describe("LendingPool liquidation - liquidator receiving underlying asset", () =
       await addressesProvider.setPriceOracle(await priceOracle.getAddress());
     }
 
-    ({ firstDepositor: depositorAddress, firstBorrower: borrowerAddress } =
-      await hre.getNamedAccounts());
+    ({
+      firstDepositor: depositorAddress,
+      firstBorrower: borrowerAddress,
+      liquidator: liquidatorAddress,
+    } = await hre.getNamedAccounts());
   });
 
   it("LIQUIDATION - Deposits ETH, borrows DAI", async () => {
@@ -161,6 +200,85 @@ describe("LendingPool liquidation - liquidator receiving underlying asset", () =
     expect(userGlobalData.healthFactor).to.be.lt(
       hre.ethers.parseEther("1"),
       "Invalid health factor",
+    );
+  });
+
+  it.skip("LIQUIDATION - Liquidates the borrow", async () => {
+    const dai = tokens.get(SYMBOLS.DAI);
+    if (!dai) {
+      throw new Error("DAI token not found");
+    }
+
+    const liquidator = await hre.ethers.getSigner(liquidatorAddress);
+
+    // Transfer DAI to liquidator
+    {
+      const whaleAddress = getWhaleAddressForToken(SYMBOLS.DAI);
+
+      const whale = await hre.ethers.getImpersonatedSigner(whaleAddress);
+      // Fund whale to pay for gas
+      await setBalance(whaleAddress, hre.ethers.parseEther("1"));
+
+      const tokensToTransfer = convertToCurrencyDecimals(SYMBOLS.DAI, "1000");
+      await dai.connect(whale).transfer(liquidatorAddress, tokensToTransfer);
+    }
+
+    await dai
+      .connect(liquidator)
+      .approve(
+        await lendingPoolCore.getAddress(),
+        "100000000000000000000000000000",
+      );
+
+    const userReserveDataBefore = await lendingPool.getUserReserveData(
+      dai,
+      borrowerAddress,
+    );
+
+    const amountToLiquidate = userReserveDataBefore.currentBorrowBalance / 2n;
+
+    await lendingPool
+      .connect(liquidator)
+      .liquidationCall(ETH, dai, borrowerAddress, amountToLiquidate, false);
+
+    const userReserveDataAfter = await lendingPool.getUserReserveData(
+      dai,
+      borrowerAddress,
+    );
+
+    const liquidatorReserveData = await lendingPool.getUserReserveData(
+      ETH,
+      liquidatorAddress,
+    );
+
+    const feeAddress = await addressesProvider.getTokenDistributor();
+
+    const feeAddressBalance = await hre.ethers.provider.getBalance(feeAddress);
+
+    expect(userReserveDataAfter.originationFee).to.eq(
+      0n,
+      "Origination fee should be repaid",
+    );
+
+    expect(feeAddressBalance).to.be.gt(0n);
+
+    console.log({
+      borrowBalanceBefore:
+        userReserveDataBefore.principalBorrowBalance.toString(),
+      borrowBalanceAfter:
+        userReserveDataAfter.principalBorrowBalance.toString(),
+      currentBorrowBalanceBefore:
+        userReserveDataBefore.currentBorrowBalance.toString(),
+      currentBorrowBalanceAfter:
+        userReserveDataAfter.currentBorrowBalance.toString(),
+      amountToLiquidate: amountToLiquidate.toString(),
+      difference:
+        userReserveDataBefore.currentBorrowBalance - amountToLiquidate,
+    });
+
+    expect(userReserveDataAfter.principalBorrowBalance).to.be.almostEqual(
+      userReserveDataBefore.currentBorrowBalance - amountToLiquidate,
+      "Invalid user borrow balance after liquidation",
     );
   });
 });

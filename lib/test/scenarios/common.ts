@@ -40,6 +40,7 @@ export async function getEnvironment(): Promise<{
 
 const RESERVE_LTV = 80n;
 const LIQUIDATION_THRESHOLD = 80n;
+// TODO: probably should be 101% instead of 1% (Full + bonus)
 const LIQUIDATION_BONUS = 1n;
 
 export const MOCK_ETHER_PRICES = {
@@ -91,6 +92,10 @@ export async function setupContracts(): Promise<{
       .getContractFactory("LendingPoolDataProvider")
       .then((factory) => factory.deploy());
 
+    const liquidationManager = await hre.ethers
+      .getContractFactory("LendingPoolLiquidationManager")
+      .then((factory) => factory.deploy());
+
     return {
       addressesProvider,
       lendingPool,
@@ -98,6 +103,7 @@ export async function setupContracts(): Promise<{
       lendingPoolDataProvider,
       feeProvider,
       tokenDistributor,
+      liquidationManager,
     };
   };
 
@@ -108,6 +114,7 @@ export async function setupContracts(): Promise<{
     lendingPoolDataProvider,
     feeProvider,
     tokenDistributor,
+    liquidationManager,
   } = await deployContracts();
 
   const deployPriceOracle = async () => {
@@ -182,6 +189,10 @@ export async function setupContracts(): Promise<{
     await addressesProvider.setFeeProviderImpl(await feeProvider.getAddress());
     await addressesProvider.setTokenDistributor(
       await tokenDistributor.getAddress(),
+    );
+
+    await addressesProvider.setLendingPoolLiquidationManager(
+      await liquidationManager.getAddress(),
     );
 
     // Initialize lending pool core
