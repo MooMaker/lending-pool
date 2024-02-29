@@ -57,6 +57,41 @@ contract AToken is ERC20Wrapper {
         uint256 _fromIndex
     );
 
+    /**
+     * @dev emitted during the liquidation action, when the liquidator reclaims the underlying
+     * asset
+     * @param _from the address from which the tokens are being burned
+     * @param _value the amount to be burned
+     * @param _fromBalanceIncrease the cumulated balance since the last update of the user
+     * @param _fromIndex the last index of the user
+     **/
+    event BurnOnLiquidation(
+        address indexed _from,
+        uint256 _value,
+        uint256 _fromBalanceIncrease,
+        uint256 _fromIndex
+    );
+
+    /**
+     * @dev emitted during the transfer action
+     * @param _from the address from which the tokens are being transferred
+     * @param _to the adress of the destination
+     * @param _value the amount to be minted
+     * @param _fromBalanceIncrease the cumulated balance since the last update of the user
+     * @param _toBalanceIncrease the cumulated balance since the last update of the destination
+     * @param _fromIndex the last index of the user
+     * @param _toIndex the last index of the liquidator
+     **/
+    event BalanceTransfer(
+        address indexed _from,
+        address indexed _to,
+        uint256 _value,
+        uint256 _fromBalanceIncrease,
+        uint256 _toBalanceIncrease,
+        uint256 _fromIndex,
+        uint256 _toIndex
+    );
+
     modifier onlyLendingPool() {
         require(
             msg.sender == address(pool),
@@ -161,6 +196,136 @@ contract AToken is ERC20Wrapper {
         _mint(_account, _amount);
 
         emit MintOnDeposit(_account, _amount, balanceIncrease, index);
+    }
+
+    /**
+     * @dev burns token in the event of a borrow being liquidated, in case the liquidators reclaims the underlying asset
+     * Transfer of the liquidated asset is executed by the lending pool contract.
+     * only lending pools can call this function
+     * @param _account the address from which burn the aTokens
+     * @param _value the amount to burn
+     **/
+    function burnOnLiquidation(
+        address _account,
+        uint256 _value
+    ) external onlyLendingPool {
+        //cumulates the balance of the user being liquidated
+        (
+            ,
+            uint256 accountBalance,
+            uint256 balanceIncrease,
+            uint256 index
+        ) = cumulateBalanceInternal(_account);
+
+        // TODO(redirects): do we need it?
+        //adds the accrued interest and substracts the burned amount to
+        //the redirected balance
+        //        updateRedirectedBalanceOfRedirectionAddressInternal(
+        //            _account,
+        //            balanceIncrease,
+        //            _value
+        //        );
+
+        //burns the requested amount of tokens
+        _burn(_account, _value);
+
+        bool userIndexReset = false;
+        //reset the user data if the remaining balance is 0
+        if (accountBalance.sub(_value) == 0) {
+            userIndexReset = resetDataOnZeroBalanceInternal(_account);
+        }
+
+        emit BurnOnLiquidation(
+            _account,
+            _value,
+            balanceIncrease,
+            userIndexReset ? 0 : index
+        );
+    }
+
+    /**
+     * @dev transfers tokens in the event of a borrow being liquidated, in case the liquidators reclaims the aToken
+     *      only lending pools can call this function
+     * @param _from the address from which transfer the aTokens
+     * @param _to the destination address
+     * @param _value the amount to transfer
+     **/
+    function transferOnLiquidation(
+        address _from,
+        address _to,
+        uint256 _value
+    ) external onlyLendingPool {
+        //being a normal transfer, the Transfer() and BalanceTransfer() are emitted
+        //so no need to emit a specific event here
+        executeTransferInternal(_from, _to, _value);
+    }
+
+    /**
+     * @dev executes the transfer of aTokens, invoked by both _transfer() and
+     *      transferOnLiquidation()
+     * @param _from the address from which transfer the aTokens
+     * @param _to the destination address
+     * @param _value the amount to transfer
+     **/
+    function executeTransferInternal(
+        address _from,
+        address _to,
+        uint256 _value
+    ) internal {
+        require(_value > 0, "Transferred amount needs to be greater than zero");
+
+        //cumulate the balance of the sender
+        (
+            ,
+            uint256 fromBalance,
+            uint256 fromBalanceIncrease,
+            uint256 fromIndex
+        ) = cumulateBalanceInternal(_from);
+
+        //cumulate the balance of the receiver
+        (
+            ,
+            ,
+            uint256 toBalanceIncrease,
+            uint256 toIndex
+        ) = cumulateBalanceInternal(_to);
+
+        //        //if the sender is redirecting his interest towards someone else,
+        //        //adds to the redirected balance the accrued interest and removes the amount
+        //        //being transferred
+        //        updateRedirectedBalanceOfRedirectionAddressInternal(
+        //            _from,
+        //            fromBalanceIncrease,
+        //            _value
+        //        );
+        //
+        //        //if the receiver is redirecting his interest towards someone else,
+        //        //adds to the redirected balance the accrued interest and the amount
+        //        //being transferred
+        //        updateRedirectedBalanceOfRedirectionAddressInternal(
+        //            _to,
+        //            toBalanceIncrease.add(_value),
+        //            0
+        //        );
+
+        //performs the transfer
+        super._transfer(_from, _to, _value);
+
+        bool fromIndexReset = false;
+        //reset the user data if the remaining balance is 0
+        if (fromBalance.sub(_value) == 0) {
+            fromIndexReset = resetDataOnZeroBalanceInternal(_from);
+        }
+
+        emit BalanceTransfer(
+            _from,
+            _to,
+            _value,
+            fromBalanceIncrease,
+            toBalanceIncrease,
+            fromIndexReset ? 0 : fromIndex,
+            toIndex
+        );
     }
 
     /**

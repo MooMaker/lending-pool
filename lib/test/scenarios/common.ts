@@ -2,8 +2,10 @@ import hre from "hardhat";
 import {
   AddressesProvider,
   AToken,
+  ChainLinkProxyPriceProvider,
   DefaultReserveInterestRateStrategy,
   ERC20,
+  IPriceOracle,
   LendingPool,
   LendingPoolCore,
 } from "../../../typechain-types";
@@ -37,10 +39,11 @@ export async function getEnvironment(): Promise<{
 }
 
 const RESERVE_LTV = 80n;
-const LIQUIDATION_THRESHOLD = 90n;
+const LIQUIDATION_THRESHOLD = 80n;
+// TODO: probably should be 101% instead of 1% (Full + bonus)
 const LIQUIDATION_BONUS = 1n;
 
-const MOCK_ETHER_PRICES = {
+export const MOCK_ETHER_PRICES = {
   [SYMBOLS.DAI]: hre.ethers.parseEther("0.001"),
   [SYMBOLS.USDC]: hre.ethers.parseEther("0.001"),
   [SYMBOLS.LINK]: hre.ethers.parseEther("0.01"),
@@ -50,6 +53,8 @@ export async function setupContracts(): Promise<{
   addressesProvider: AddressesProvider;
   lendingPool: LendingPool;
   lendingPoolCore: LendingPoolCore;
+  chainLinkPriceOracle: ChainLinkProxyPriceProvider;
+  fallbackOracle: IPriceOracle;
   aTokensPerSymbol: Map<string, AToken>;
   aTokensPerAddress: Map<string, AToken>;
   interestRateStrategies: Map<string, DefaultReserveInterestRateStrategy>;
@@ -87,6 +92,10 @@ export async function setupContracts(): Promise<{
       .getContractFactory("LendingPoolDataProvider")
       .then((factory) => factory.deploy());
 
+    const liquidationManager = await hre.ethers
+      .getContractFactory("LendingPoolLiquidationManager")
+      .then((factory) => factory.deploy());
+
     return {
       addressesProvider,
       lendingPool,
@@ -94,6 +103,7 @@ export async function setupContracts(): Promise<{
       lendingPoolDataProvider,
       feeProvider,
       tokenDistributor,
+      liquidationManager,
     };
   };
 
@@ -104,9 +114,10 @@ export async function setupContracts(): Promise<{
     lendingPoolDataProvider,
     feeProvider,
     tokenDistributor,
+    liquidationManager,
   } = await deployContracts();
 
-  const deployChainlinkPriceOracle = async () => {
+  const deployPriceOracle = async () => {
     const reserveAddresses: string[] = [];
     const dataFeedAddresses: string[] = [];
 
@@ -146,14 +157,22 @@ export async function setupContracts(): Promise<{
 
     const chainLinkProxyPriceProviderFactory =
       await hre.ethers.getContractFactory("ChainLinkProxyPriceProvider");
-    return chainLinkProxyPriceProviderFactory.deploy(
-      reserveAddresses,
-      dataFeedAddresses,
-      await fallbackOracle.getAddress(),
-    );
+
+    const chainLinkProxyPriceProvider =
+      await chainLinkProxyPriceProviderFactory.deploy(
+        reserveAddresses,
+        dataFeedAddresses,
+        await fallbackOracle.getAddress(),
+      );
+
+    return {
+      chainLinkProxyPriceProvider,
+      fallbackOracle,
+    };
   };
 
-  const chainLinkProxyPriceProvider = await deployChainlinkPriceOracle();
+  const { chainLinkProxyPriceProvider, fallbackOracle } =
+    await deployPriceOracle();
 
   const setup = async () => {
     // Setup addresses provider
@@ -170,6 +189,10 @@ export async function setupContracts(): Promise<{
     await addressesProvider.setFeeProviderImpl(await feeProvider.getAddress());
     await addressesProvider.setTokenDistributor(
       await tokenDistributor.getAddress(),
+    );
+
+    await addressesProvider.setLendingPoolLiquidationManager(
+      await liquidationManager.getAddress(),
     );
 
     // Initialize lending pool core
@@ -300,6 +323,8 @@ export async function setupContracts(): Promise<{
     addressesProvider,
     lendingPool,
     lendingPoolCore,
+    chainLinkPriceOracle: chainLinkProxyPriceProvider,
+    fallbackOracle,
     aTokensPerSymbol,
     aTokensPerAddress,
     interestRateStrategies,

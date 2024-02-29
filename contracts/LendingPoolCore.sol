@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPLv3
 pragma solidity ^0.8.19;
 
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -231,6 +232,160 @@ contract LendingPoolCore is Initializable {
     }
 
     /**
+     * @dev updates the state of the core as a consequence of a liquidation action.
+     * @param _principalReserve the address of the principal reserve that is being repaid
+     * @param _collateralReserve the address of the collateral reserve that is being liquidated
+     * @param _user the address of the borrower
+     * @param _amountToLiquidate the amount being repaid by the liquidator
+     * @param _collateralToLiquidate the amount of collateral being liquidated
+     * @param _feeLiquidated the amount of origination fee being liquidated
+     * @param _liquidatedCollateralForFee the amount of collateral equivalent to the origination fee + bonus
+     * @param _balanceIncrease the accrued interest on the borrowed amount
+     * @param _liquidatorReceivesAToken true if the liquidator will receive aTokens, false otherwise
+     **/
+    function updateStateOnLiquidation(
+        address _principalReserve,
+        address _collateralReserve,
+        address _user,
+        uint256 _amountToLiquidate,
+        uint256 _collateralToLiquidate,
+        uint256 _feeLiquidated,
+        uint256 _liquidatedCollateralForFee,
+        uint256 _balanceIncrease,
+        bool _liquidatorReceivesAToken
+    ) external onlyLendingPool {
+        updatePrincipalReserveStateOnLiquidationInternal(
+            _principalReserve,
+            _user,
+            _amountToLiquidate,
+            _balanceIncrease
+        );
+
+        updateCollateralReserveStateOnLiquidationInternal(_collateralReserve);
+
+        updateUserStateOnLiquidationInternal(
+            _principalReserve,
+            _user,
+            _amountToLiquidate,
+            _feeLiquidated,
+            _balanceIncrease
+        );
+
+        updateReserveInterestRatesAndTimestampInternal(
+            _principalReserve,
+            _amountToLiquidate,
+            0
+        );
+
+        if (!_liquidatorReceivesAToken) {
+            updateReserveInterestRatesAndTimestampInternal(
+                _collateralReserve,
+                0,
+                _collateralToLiquidate.add(_liquidatedCollateralForFee)
+            );
+        }
+    }
+
+    /**
+     * @dev updates the state of the principal reserve as a consequence of a liquidation action.
+     * @param _principalReserve the address of the principal reserve that is being repaid
+     * @param _user the address of the borrower
+     * @param _amountToLiquidate the amount being repaid by the liquidator
+     * @param _balanceIncrease the accrued interest on the borrowed amount
+     **/
+    function updatePrincipalReserveStateOnLiquidationInternal(
+        address _principalReserve,
+        address _user,
+        uint256 _amountToLiquidate,
+        uint256 _balanceIncrease
+    ) internal {
+        CoreLibrary.ReserveData storage reserve = reserves[_principalReserve];
+        CoreLibrary.UserReserveData storage user = usersReserveData[_user][
+            _principalReserve
+        ];
+
+        //update principal reserve data
+        reserve.updateCumulativeIndexes();
+
+        CoreLibrary.InterestRateMode borrowRateMode = getUserCurrentBorrowRateMode(
+                _principalReserve,
+                _user
+            );
+
+        //        if (borrowRateMode == CoreLibrary.InterestRateMode.STABLE) {
+        //            //increase the total borrows by the compounded interest
+        //            reserve.increaseTotalBorrowsStableAndUpdateAverageRate(
+        //                _balanceIncrease,
+        //                user.stableBorrowRate
+        //            );
+        //
+        //            //decrease by the actual amount to liquidate
+        //            reserve.decreaseTotalBorrowsStableAndUpdateAverageRate(
+        //                _amountToLiquidate,
+        //                user.stableBorrowRate
+        //            );
+        //        } else {
+        //increase the total borrows by the compounded interest
+        reserve.increaseTotalBorrowsVariable(_balanceIncrease);
+
+        //decrease by the actual amount to liquidate
+        reserve.decreaseTotalBorrowsVariable(_amountToLiquidate);
+        //        }
+    }
+
+    /**
+     * @dev updates the state of the collateral reserve as a consequence of a liquidation action.
+     * @param _collateralReserve the address of the collateral reserve that is being liquidated
+     **/
+    function updateCollateralReserveStateOnLiquidationInternal(
+        address _collateralReserve
+    ) internal {
+        //update collateral reserve
+        reserves[_collateralReserve].updateCumulativeIndexes();
+    }
+
+    /**
+     * @dev updates the state of the user being liquidated as a consequence of a liquidation action.
+     * @param _reserve the address of the principal reserve that is being repaid
+     * @param _user the address of the borrower
+     * @param _amountToLiquidate the amount being repaid by the liquidator
+     * @param _feeLiquidated the amount of origination fee being liquidated
+     * @param _balanceIncrease the accrued interest on the borrowed amount
+     **/
+    function updateUserStateOnLiquidationInternal(
+        address _reserve,
+        address _user,
+        uint256 _amountToLiquidate,
+        uint256 _feeLiquidated,
+        uint256 _balanceIncrease
+    ) internal {
+        CoreLibrary.UserReserveData storage user = usersReserveData[_user][
+            _reserve
+        ];
+        CoreLibrary.ReserveData storage reserve = reserves[_reserve];
+        //first increase by the compounded interest, then decrease by the liquidated amount
+        user.principalBorrowBalance = user
+            .principalBorrowBalance
+            .add(_balanceIncrease)
+            .sub(_amountToLiquidate);
+
+        if (
+            getUserCurrentBorrowRateMode(_reserve, _user) ==
+            CoreLibrary.InterestRateMode.VARIABLE
+        ) {
+            user.lastVariableBorrowCumulativeIndex = reserve
+                .lastVariableBorrowCumulativeIndex;
+        }
+
+        if (_feeLiquidated > 0) {
+            user.originationFee = user.originationFee.sub(_feeLiquidated);
+        }
+
+        //solium-disable-next-line
+        user.lastUpdateTimestamp = uint40(block.timestamp);
+    }
+
+    /**
      * @dev gets the normalized income of the reserve. a value of 1e27 means there is no income. A value of 2e27 means there
      * there has been 100% income.
      * @param _reserve the reserve address
@@ -325,6 +480,19 @@ contract LendingPoolCore is Initializable {
             _reserve
         ];
         return user.useAsCollateral;
+    }
+
+    /**
+     * @dev returns true if the reserve is enabled as collateral
+     * @param _reserve the reserve address
+     * @return true if the reserve is enabled as collateral, false otherwise
+     **/
+
+    function isReserveUsageAsCollateralEnabled(
+        address _reserve
+    ) external view returns (bool) {
+        CoreLibrary.ReserveData storage reserve = reserves[_reserve];
+        return reserve.usageAsCollateralEnabled;
     }
 
     /**
@@ -541,6 +709,31 @@ contract LendingPoolCore is Initializable {
                 );
                 require(result, "Transfer of ETH failed");
             }
+        }
+    }
+
+    /**
+     * @dev transfers the fees to the fees collection address in the case of liquidation
+     * @param _token the address of the token being transferred
+     * @param _amount the amount being transferred
+     * @param _destination the fee receiver address
+     **/
+    function liquidateFee(
+        address _token,
+        uint256 _amount,
+        address _destination
+    ) external payable onlyLendingPool {
+        address payable feeAddress = payable(_destination); //cast the address to payable
+        require(
+            msg.value == 0,
+            "Fee liquidation does not require any transfer of value"
+        );
+
+        if (_token != EthAddressLib.ethAddress()) {
+            ERC20(_token).safeTransfer(feeAddress, _amount);
+        } else {
+            (bool result, ) = feeAddress.call{value: _amount, gas: 50000}("");
+            require(result, "Transfer of ETH failed");
         }
     }
 
@@ -889,6 +1082,19 @@ contract LendingPoolCore is Initializable {
     ) external view returns (uint256) {
         CoreLibrary.ReserveData storage reserve = reserves[_reserve];
         return reserve.lastLiquidityCumulativeIndex;
+    }
+
+    /**
+     * @dev gets the reserve liquidation bonus
+     * @param _reserve the reserve address
+     * @return the reserve liquidation bonus
+     **/
+
+    function getReserveLiquidationBonus(
+        address _reserve
+    ) external view returns (uint256) {
+        CoreLibrary.ReserveData storage reserve = reserves[_reserve];
+        return reserve.liquidationBonus;
     }
 
     /**

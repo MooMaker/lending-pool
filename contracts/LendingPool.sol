@@ -113,6 +113,30 @@ contract LendingPool is ReentrancyGuard, Initializable {
     );
 
     /**
+     * @dev emitted when a borrower is liquidated
+     * @param _collateral the address of the collateral being liquidated
+     * @param _reserve the address of the reserve
+     * @param _user the address of the user being liquidated
+     * @param _purchaseAmount the total amount liquidated
+     * @param _liquidatedCollateralAmount the amount of collateral being liquidated
+     * @param _accruedBorrowInterest the amount of interest accrued by the borrower since the last action
+     * @param _liquidator the address of the liquidator
+     * @param _receiveAToken true if the liquidator wants to receive aTokens, false otherwise
+     * @param _timestamp the timestamp of the action
+     **/
+    event LiquidationCall(
+        address indexed _collateral,
+        address indexed _reserve,
+        address indexed _user,
+        uint256 _purchaseAmount,
+        uint256 _liquidatedCollateralAmount,
+        uint256 _accruedBorrowInterest,
+        address _liquidator,
+        bool _receiveAToken,
+        uint256 _timestamp
+    );
+
+    /**
      * @dev functions affected by this modifier can only be invoked if the reserve is active
      * @param _reserve the address of the reserve
      **/
@@ -530,6 +554,57 @@ contract LendingPool is ReentrancyGuard, Initializable {
     }
 
     /**
+     * @dev users can invoke this function to liquidate an undercollateralized position.
+     * @param _reserve the address of the collateral to liquidated
+     * @param _reserve the address of the principal reserve
+     * @param _user the address of the borrower
+     * @param _purchaseAmount the amount of principal that the liquidator wants to repay
+     * @param _receiveAToken true if the liquidators wants to receive the aTokens, false if
+     * he wants to receive the underlying asset directly
+     **/
+    function liquidationCall(
+        address _collateral,
+        address _reserve,
+        address _user,
+        uint256 _purchaseAmount,
+        bool _receiveAToken
+    )
+        external
+        payable
+        nonReentrant
+        onlyActiveReserve(_reserve)
+        onlyActiveReserve(_collateral)
+    {
+        address liquidationManager = addressesProvider
+            .getLendingPoolLiquidationManager();
+
+        (bool success, bytes memory result) = liquidationManager.delegatecall(
+            abi.encodeWithSignature(
+                "liquidationCall(address,address,address,uint256,bool)",
+                _collateral,
+                _reserve,
+                _user,
+                _purchaseAmount,
+                _receiveAToken
+            )
+        );
+
+        require(success, "Liquidation call failed");
+
+        (uint256 returnCode, string memory returnMessage) = abi.decode(
+            result,
+            (uint256, string)
+        );
+
+        if (returnCode != 0) {
+            //error found
+            revert(
+                string(abi.encodePacked("Liquidation failed: ", returnMessage))
+            );
+        }
+    }
+
+    /**
      * @dev allows depositors to enable or disable a specific deposit as collateral.
      * @param _reserve the address of the reserve
      * @param _useAsCollateral true if the user wants to user the deposit as collateral, false otherwise.
@@ -615,6 +690,25 @@ contract LendingPool is ReentrancyGuard, Initializable {
         );
         aTokenAddress = core.getReserveATokenAddress(_reserve);
         lastUpdateTimestamp = core.getReserveLastUpdate(_reserve);
+    }
+
+    function getUserAccountData(
+        address _user
+    )
+        external
+        view
+        returns (
+            uint256 totalLiquidityETH,
+            uint256 totalCollateralETH,
+            uint256 totalBorrowsETH,
+            uint256 totalFeesETH,
+            uint256 availableBorrowsETH,
+            uint256 currentLiquidationThreshold,
+            uint256 ltv,
+            uint256 healthFactor
+        )
+    {
+        return dataProvider.getUserAccountData(_user);
     }
 
     function getUserReserveData(

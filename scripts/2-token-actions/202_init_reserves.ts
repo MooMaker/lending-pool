@@ -6,6 +6,7 @@ import { SYMBOLS } from "../../lib/constants/tokens";
 const RESERVES = [SYMBOLS.ETH, SYMBOLS.DAI, SYMBOLS.USDC, SYMBOLS.LINK];
 const RESERVE_LTV = 80n;
 const LIQUIDATION_THRESHOLD = 90n;
+// TODO: probably should be 101% instead of 1% (Full + bonus)
 const LIQUIDATION_BONUS = 1n;
 
 const setupFunction: DeployFunction = async function (
